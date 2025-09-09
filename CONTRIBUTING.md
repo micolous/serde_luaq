@@ -54,6 +54,7 @@ Issues and questions sent by email will attract my professional consulting rates
 - All contributions **must be your own work**.
 - Automated PRs and the use of generative AI **is not welcome here**.
 - Keep your PR small and simple. Focus on one issue at a time.
+- Include test cases.
 - Avoid mixing whitespace and formatting changes with your change.
 - If you're fixing a security bug, [use the private vulnerability reporting system][security] to
   make a private PR.
@@ -61,6 +62,7 @@ Issues and questions sent by email will attract my professional consulting rates
 Examples of welcomed contributions:
 
 - Fixing Serde issues
+- Expanding test cases
 - Fixing [security issues][security]
 - Fixing Lua parser issues
 - Performance improvements
