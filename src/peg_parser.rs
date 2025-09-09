@@ -71,6 +71,10 @@ peg::parser! {
         /// Match at least one whitespace character.
         rule __ = whitespace()+
 
+        /// Match any linebreak character sequence.
+        rule linebreak()
+            = "\r\n" / "\n\r" / "\r" / "\n"
+
         /// Match a decimal digit.
         rule digit() -> &'input [u8]
             = $(quiet!{[ b'0'..=b'9' ]})
@@ -236,10 +240,10 @@ peg::parser! {
                 r"\'" { APOSTROPHE } /
 
                 // backslash followed by linebreak -> newline in string
-                "\\\n" { UNIX_LINEFEED } /
                 "\\\r\n" { DOS_LINEFEED } /
-                "\\\r" { CARRIAGE_RETURN } /
                 "\\\n\r" { ACORN_LINEFEED } /
+                "\\\n" { UNIX_LINEFEED } /
+                "\\\r" { CARRIAGE_RETURN } /
 
                 // \z skips all following whitespace characters, including line breaks
                 r"\z" _ { EMPTY } /
@@ -369,10 +373,11 @@ peg::parser! {
         rule longer_string(level: usize) -> Cow<'input, [u8]>
             =
                 // Matches empty strings
-                "[" "="*<{level}> "[]" "="*<{level}> "]" { EMPTY } /
+                "[" "="*<{level}> "[" linebreak()? "]" "="*<{level}> "]" { EMPTY } /
 
                 // Matches non-empty strings
                 "[" "="*<{level}> "["
+                linebreak()?
                 v:$(
                     (
                         !("]" "="*<{level}> "]")
@@ -385,10 +390,11 @@ peg::parser! {
         rule long_string() -> Cow<'input, [u8]>
             =
                 // Matches empty strings
-                "[[]]" { EMPTY } /
+                "[[" linebreak()? "]]" { EMPTY } /
 
                 // Matches non-empty strings
                 "[["
+                linebreak()?
                 v:$(
                     (
                         !"]]"

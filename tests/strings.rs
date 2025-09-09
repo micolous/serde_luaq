@@ -157,7 +157,6 @@ fn newlines() {
         LuaValue::String(b"hello\n\rworld".into()),
     );
 
-
     // When the opening long bracket is immediately followed by a newline, the newline is not
     // included in the string.
     let expected = LuaValue::String(b"hello".into());
@@ -191,19 +190,37 @@ fn newlines() {
 
     check(b"[=[\n\nhello]=]", LuaValue::String(b"\nhello".into()));
     check(b"[=[\r\rhello]=]", LuaValue::String(b"\rhello".into()));
-    check(b"[=[\r\n\r\nhello]=]", LuaValue::String(b"\r\nhello".into()));
-    check(b"[=[\n\r\n\rhello]=]", LuaValue::String(b"\n\rhello".into()));
+    check(
+        b"[=[\r\n\r\nhello]=]",
+        LuaValue::String(b"\r\nhello".into()),
+    );
+    check(
+        b"[=[\n\r\n\rhello]=]",
+        LuaValue::String(b"\n\rhello".into()),
+    );
 
     // Trailing newlines are retained.
     check(b"[[\n\nhello\n]]", LuaValue::String(b"\nhello\n".into()));
     check(b"[[\r\rhello\r]]", LuaValue::String(b"\rhello\r".into()));
-    check(b"[[\r\n\r\nhello\r\n]]", LuaValue::String(b"\r\nhello\r\n".into()));
-    check(b"[[\n\r\n\rhello\n\r]]", LuaValue::String(b"\n\rhello\n\r".into()));
+    check(
+        b"[[\r\n\r\nhello\r\n]]",
+        LuaValue::String(b"\r\nhello\r\n".into()),
+    );
+    check(
+        b"[[\n\r\n\rhello\n\r]]",
+        LuaValue::String(b"\n\rhello\n\r".into()),
+    );
 
     check(b"[=[\n\nhello\n]=]", LuaValue::String(b"\nhello\n".into()));
     check(b"[=[\r\rhello\r]=]", LuaValue::String(b"\rhello\r".into()));
-    check(b"[=[\r\n\r\nhello\r\n]=]", LuaValue::String(b"\r\nhello\r\n".into()));
-    check(b"[=[\n\r\n\rhello\n\r]=]", LuaValue::String(b"\n\rhello\n\r".into()));
+    check(
+        b"[=[\r\n\r\nhello\r\n]=]",
+        LuaValue::String(b"\r\nhello\r\n".into()),
+    );
+    check(
+        b"[=[\n\r\n\rhello\n\r]=]",
+        LuaValue::String(b"\n\rhello\n\r".into()),
+    );
 }
 
 #[test]
