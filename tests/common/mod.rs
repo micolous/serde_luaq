@@ -1,16 +1,19 @@
 //! Tests with Lua literals
 #![allow(dead_code)]
 
+use std::borrow::Borrow;
+
 use serde_luaq::{lua_value, return_statement, script, LuaValue};
 
 /// Parse a buffer of Lua code and expect no remaining value.
-pub fn check(lua: &'_ [u8], expected: LuaValue<'_>) {
+pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
+    let expected: &LuaValue<'a> = expected.borrow();
     let actual = lua_value(lua).unwrap();
 
     if expected.is_nan() {
         assert!(actual.is_nan(), "lua: {}", lua.escape_ascii());
     } else {
-        assert_eq!(actual, expected, "lua: {}", lua.escape_ascii());
+        assert_eq!(&actual, expected, "lua: {}", lua.escape_ascii());
     }
 
     let mut s = Vec::with_capacity(lua.len() + 4);
@@ -23,7 +26,7 @@ pub fn check(lua: &'_ [u8], expected: LuaValue<'_>) {
     if expected.is_nan() {
         assert!(actual.is_nan(), "lua: {}", s.escape_ascii());
     } else {
-        assert_eq!(actual, expected, "lua: {}", s.escape_ascii());
+        assert_eq!(&actual, expected, "lua: {}", s.escape_ascii());
     }
 }
 
