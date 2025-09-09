@@ -89,7 +89,7 @@ a JSON parser would implement:
 - [x] [Numbers][lua3.1]
   - [x] [Integers][lua3.1]
     - [x] Decimal integers (`123`)
-      - [x] Coercion to float for decimal numbers `< i64::MIN` or `> i64::MAX`
+      - [x] [Coercion to float for decimal numbers `< i64::MIN` or `> i64::MAX`][lua8]
     - [x] Hexadecimal integer (`0xFF`)
       - [x] Wrapping large hexadecimal numbers to `i64`
   - [x] [Floats][lua3.1]
@@ -158,6 +158,7 @@ something like [`mlua`][mlua], which links to `liblua`, and also provides `serde
 [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
 [lua3.1]: https://www.lua.org/manual/5.4/manual.html#3.1
 [lua3.4.9]: https://www.lua.org/manual/5.4/manual.html#3.4.9
+[lua8]: https://www.lua.org/manual/5.4/manual.html#8
 [mlua]: https://github.com/mlua-rs/mlua
 [peg]: https://docs.rs/peg/latest/peg/
 [SaveData]: https://github.com/BroccoliRaab/SaveData
