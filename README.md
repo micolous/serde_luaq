@@ -7,14 +7,14 @@
 > This library is still a work in progress, and there are no API stability guarantees.
 
 `serde_luaq` is a library for deserialising (and eventually, serialising) simple, JSON-equivalent
-data structures from Lua source code, _without requiring Lua itself_ (unlike [`mlua`][mlua]).
+data structures from Lua 5.4 source code, _without requiring Lua itself_ (unlike [`mlua`][mlua]).
 
 The goal is to be able to read state from software (mostly games) which is serialised using
 [Lua `%q` formatting][format] (and similar techniques) _without requiring arbitrary code execution_.
 
 This library consists of four parts:
 
-- A `LuaValue` `enum`, which describes Lua's basic data types (`nil`, boolean, string, number,
+- A `LuaValue` `enum`, which describes Lua 5.4's basic data types (`nil`, boolean, string, number,
   table).
 
 - A [`peg`][peg]-based parser for parsing a `&[u8]` (containing Lua) into a `LuaValue`.
@@ -81,15 +81,15 @@ assert_eq!(parsed, Test {
 
 ## Lua language features
 
-This library aims to implement a _subset_ of Lua that is equivalent to the subset of JavaScript that
-a JSON parser would implement:
+This library aims to implement a _subset_ of Lua 5.4 that is equivalent to the subset of JavaScript
+that a JSON parser would implement:
 
 - [x] `nil`
 - [x] Booleans (`true`, `false`)
 - [x] [Numbers][lua3.1]
   - [x] [Integers][lua3.1]
     - [x] Decimal integers (`123`)
-      - [x] [Coercion to float for decimal numbers `< i64::MIN` or `> i64::MAX`][lua8]
+      - [x] Coercion to float for decimal numbers `< i64::MIN` or `> i64::MAX` ([Lua 5.4][lua8])
     - [x] Hexadecimal integer (`0xFF`)
       - [x] Wrapping large hexadecimal numbers to `i64`
   - [x] [Floats][lua3.1]
@@ -116,7 +116,7 @@ a JSON parser would implement:
   - [x] Name-values / identifier keys (`{foo = "bar"}`)
   - [x] Values / implicit keys (`{"bar"}`)
   - [x] Mixed key types
-  - [x] Identifier validation
+  - [x] Identifier validation (Lua 5.4-style)
 
 This library is not designed to replace Lua, nor execute arbitrary Lua code, so these Lua features
 are _intentionally unsupported_:

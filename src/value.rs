@@ -5,7 +5,7 @@ use std::{
     str::{from_utf8, Utf8Error},
 };
 
-/// Basic Lua data types that are equivalent to those available in JSON.
+/// Basic Lua 5.4 data types that are equivalent to those available in JSON.
 ///
 /// Reference: <https://www.lua.org/manual/5.4/manual.html#2.1>
 #[derive(Clone, PartialEq)]

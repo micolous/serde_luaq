@@ -1,5 +1,5 @@
 //! `serde_luaq` is a library for deserialising (and eventually, serialising) simple, JSON-like data
-//! structures from Lua source code, _without requiring Lua itself_.
+//! structures from Lua 5.4 source code, _without requiring Lua itself_.
 //!
 //! The goal is to be able to read state from software (mostly games) which is serialised using
 //! [Lua `%q` formatting][format].

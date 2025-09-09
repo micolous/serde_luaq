@@ -5,7 +5,7 @@ Thank you for your interest in contributing to this project!
 ## Scope
 
 This library targets compatibility with Lua 5.4 (the current stable version, at the time of writing)
-and data structures that have JSON equivalents (eg: `table` <=> `Object`).
+and data structures that have JSON equivalents (eg: `table` is like `Array` or `Object`).
 
 Compatibility with older versions of Lua may be considered if compelling and widespread enough, and
 that they don't break compatibility with Lua 5.4. Aside from identifier restrictions, the integer
