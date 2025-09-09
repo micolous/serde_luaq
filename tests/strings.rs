@@ -117,6 +117,11 @@ fn long_string() {
     check(b"[[\r\nhello]]", &expected);
     check(b"[[\n\rhello]]", &expected);
 
+    check(b"[=[\nhello]=]", &expected);
+    check(b"[=[\rhello]=]", &expected);
+    check(b"[=[\r\nhello]=]", &expected);
+    check(b"[=[\n\rhello]=]", &expected);
+
     // Any whitespace characters after the initial newline are included
     let expected = LuaValue::String(b" hello".into());
     check(b"[[\n hello]]", &expected);
@@ -124,11 +129,21 @@ fn long_string() {
     check(b"[[\r\n hello]]", &expected);
     check(b"[[\n\r hello]]", &expected);
 
-    // Only one of the newlines is removed.
+    check(b"[=[\n hello]=]", &expected);
+    check(b"[=[\r hello]=]", &expected);
+    check(b"[=[\r\n hello]=]", &expected);
+    check(b"[=[\n\r hello]=]", &expected);
+
+    // Only the first newline is removed.
     check(b"[[\n\nhello]]", LuaValue::String(b"\nhello".into()));
     check(b"[[\r\rhello]]", LuaValue::String(b"\rhello".into()));
     check(b"[[\r\n\r\nhello]]", LuaValue::String(b"\r\nhello".into()));
     check(b"[[\n\r\n\rhello]]", LuaValue::String(b"\n\rhello".into()));
+
+    check(b"[=[\n\nhello]=]", LuaValue::String(b"\nhello".into()));
+    check(b"[=[\r\rhello]=]", LuaValue::String(b"\rhello".into()));
+    check(b"[=[\r\n\r\nhello]=]", LuaValue::String(b"\r\nhello".into()));
+    check(b"[=[\n\r\n\rhello]=]", LuaValue::String(b"\n\rhello".into()));
 
     // Multiple types of brackets in the same value
     check(
