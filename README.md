@@ -1,7 +1,9 @@
-# `serde_luaq` &emsp; [![Latest Version]][crates.io]
+# `serde_luaq` &emsp; [![Latest Version]][crates.io] [![Docs version]][docs.rs]
 
 [Latest Version]: https://img.shields.io/crates/v/serde_luaq.svg
 [crates.io]: https://crates.io/crates/serde_luaq
+[Docs version]: https://img.shields.io/docsrs/serde_luaq.svg
+[docs.rs]: https://docs.rs/serde_luaq/
 
 > [!NOTE]
 > This library is still a work in progress, and there are no API stability guarantees.
@@ -14,7 +16,7 @@ The goal is to be able to read state from software (mostly games) which is seria
 
 This library consists of four parts:
 
-- A `LuaValue` `enum`, which describes Lua 5.4's basic data types (`nil`, boolean, string, number,
+- A [`LuaValue`][luavalue] `enum`, which describes Lua 5.4's basic data types (`nil`, boolean, string, number,
   table).
 
 - A [`peg`][peg]-based parser for parsing a `&[u8]` (containing Lua) into a `LuaValue`.
@@ -159,6 +161,7 @@ something like [`mlua`][mlua], which links to `liblua`, and also provides `serde
 [lua3.1]: https://www.lua.org/manual/5.4/manual.html#3.1
 [lua3.4.9]: https://www.lua.org/manual/5.4/manual.html#3.4.9
 [lua8]: https://www.lua.org/manual/5.4/manual.html#8
+[luavalue]: https://docs.rs/serde_luaq/latest/serde_luaq/enum.LuaValue.html
 [mlua]: https://github.com/mlua-rs/mlua
 [peg]: https://docs.rs/peg/latest/peg/
 [SaveData]: https://github.com/BroccoliRaab/SaveData
