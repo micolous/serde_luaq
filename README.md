@@ -1,4 +1,7 @@
-# `serde_luaq`
+# `serde_luaq` &emsp; [![Latest Version]][crates.io]
+
+[Latest Version]: https://img.shields.io/crates/v/serde_luaq.svg
+[crates.io]: https://crates.io/crates/serde_luaq
 
 > [!NOTE]
 > This library is still a work in progress, and there are no API stability guarantees.
