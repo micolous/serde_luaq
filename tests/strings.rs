@@ -109,6 +109,55 @@ fn long_string() {
         LuaValue::String(b"hell[[o]] w[=[o]=]rld".into()),
     );
 
+    // Multiple types of brackets in the same value
+    check(
+        b"{[[hello]],[=[world]=],'!',\"?\"}",
+        LuaValue::Table(vec![
+            LuaTableEntry::Value(LuaValue::String(b"hello".into())),
+            LuaTableEntry::Value(LuaValue::String(b"world".into())),
+            LuaTableEntry::Value(LuaValue::String(b"!".into())),
+            LuaTableEntry::Value(LuaValue::String(b"?".into())),
+        ]),
+    );
+}
+
+#[test]
+fn newlines() {
+    // Short strings need to escape newlines
+    assert!(lua_value(b"'\nfoo'").is_err());
+    assert!(lua_value(b"'\rfoo'").is_err());
+    assert!(lua_value(b"'\r\nfoo'").is_err());
+    assert!(lua_value(b"'\n\rfoo'").is_err());
+
+    assert!(lua_value(b"\"\nfoo\"").is_err());
+    assert!(lua_value(b"\"\rfoo\"").is_err());
+    assert!(lua_value(b"\"\r\nfoo\"").is_err());
+    assert!(lua_value(b"\"\n\rfoo\"").is_err());
+
+    // Backslash with line break.
+    // Lua normalises these to the platform's newline character, but we retain these as-is because
+    // it could otherwise affect unescaped binary data.
+    check(
+        b"\"hello\\\nworld\"",
+        LuaValue::String(b"hello\nworld".into()),
+    );
+
+    check(
+        b"\"hello\\\r\nworld\"",
+        LuaValue::String(b"hello\r\nworld".into()),
+    );
+
+    check(
+        b"\"hello\\\rworld\"",
+        LuaValue::String(b"hello\rworld".into()),
+    );
+
+    check(
+        b"\"hello\\\n\rworld\"",
+        LuaValue::String(b"hello\n\rworld".into()),
+    );
+
+
     // When the opening long bracket is immediately followed by a newline, the newline is not
     // included in the string.
     let expected = LuaValue::String(b"hello".into());
@@ -145,16 +194,16 @@ fn long_string() {
     check(b"[=[\r\n\r\nhello]=]", LuaValue::String(b"\r\nhello".into()));
     check(b"[=[\n\r\n\rhello]=]", LuaValue::String(b"\n\rhello".into()));
 
-    // Multiple types of brackets in the same value
-    check(
-        b"{[[hello]],[=[world]=],'!',\"?\"}",
-        LuaValue::Table(vec![
-            LuaTableEntry::Value(LuaValue::String(b"hello".into())),
-            LuaTableEntry::Value(LuaValue::String(b"world".into())),
-            LuaTableEntry::Value(LuaValue::String(b"!".into())),
-            LuaTableEntry::Value(LuaValue::String(b"?".into())),
-        ]),
-    );
+    // Trailing newlines are retained.
+    check(b"[[\n\nhello\n]]", LuaValue::String(b"\nhello\n".into()));
+    check(b"[[\r\rhello\r]]", LuaValue::String(b"\rhello\r".into()));
+    check(b"[[\r\n\r\nhello\r\n]]", LuaValue::String(b"\r\nhello\r\n".into()));
+    check(b"[[\n\r\n\rhello\n\r]]", LuaValue::String(b"\n\rhello\n\r".into()));
+
+    check(b"[=[\n\nhello\n]=]", LuaValue::String(b"\nhello\n".into()));
+    check(b"[=[\r\rhello\r]=]", LuaValue::String(b"\rhello\r".into()));
+    check(b"[=[\r\n\r\nhello\r\n]=]", LuaValue::String(b"\r\nhello\r\n".into()));
+    check(b"[=[\n\r\n\rhello\n\r]=]", LuaValue::String(b"\n\rhello\n\r".into()));
 }
 
 #[test]
@@ -181,24 +230,6 @@ fn escapes() {
     check(
         b"\"\\0\\1\\02\\0023\\5\\0009\"",
         LuaValue::String(b"\0\x01\x02\x023\x05\09".into()),
-    );
-
-    // Backslash with line break.
-    // Lua normalises these to the platform's newline character, but we retain these as-is because
-    // it could otherwise affect unescaped binary data.
-    check(
-        b"\"hello\\\nworld\"",
-        LuaValue::String(b"hello\nworld".into()),
-    );
-
-    check(
-        b"\"hello\\\r\nworld\"",
-        LuaValue::String(b"hello\r\nworld".into()),
-    );
-
-    check(
-        b"\"hello\\\rworld\"",
-        LuaValue::String(b"hello\rworld".into()),
     );
 
     check(
