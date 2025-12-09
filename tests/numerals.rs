@@ -44,7 +44,11 @@ fn decimal_integers() {
 #[test]
 fn hex_integers() {
     check(b"0xff", LuaValue::integer(0xff));
+    check(b"0Xff", LuaValue::integer(0xff));
     check(b"+0xff", LuaValue::integer(0xff));
+    check(b"+0Xff", LuaValue::integer(0xff));
+    check(b"-0xff", LuaValue::integer(-0xff));
+    check(b"-0Xff", LuaValue::integer(-0xff));
     check(b"0xBEBADA", LuaValue::integer(0xBEBADA));
     check(b"+0xBEBADA", LuaValue::integer(0xBEBADA));
     check(b"0x7fffffffffffffff", LuaValue::integer(0x7fffffffffffffff));
