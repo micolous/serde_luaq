@@ -432,11 +432,13 @@ peg::parser! {
         /// ```rust
         /// use serde_luaq::{lua_value, LuaValue};
         ///
-        /// assert_eq!(LuaValue::Boolean(true), lua_value(b"true").unwrap());
-        /// assert_eq!(LuaValue::Boolean(false), lua_value(b"  false\r\n  ").unwrap());
+        /// assert_eq!(LuaValue::Boolean(true), lua_value(b"true", 16).unwrap());
+        /// assert_eq!(LuaValue::Boolean(false), lua_value(b"  false\r\n  ", 16).unwrap());
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
+        ///
+        /// `max_depth` defines the maximum recursion depth for tables.
         pub rule lua_value(max_depth: usize) -> LuaValue<'input>
             = (
                 _ "nil" _ { LuaValue::Nil } /
@@ -511,11 +513,14 @@ peg::parser! {
         ///         ("hello", LuaValue::Boolean(true)),
         ///         ("goodbye", LuaValue::Boolean(false)),
         ///     ],
-        ///     script(b"hello = true\ngoodbye = false").unwrap()
+        ///     script(b"hello = true\ngoodbye = false", 16).unwrap()
         /// );
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
+        ///
+        /// `max_depth` defines the maximum recursion depth for tables.
+
         pub rule script(max_depth: usize) -> Vec<(&'input str, LuaValue<'input>)>
             = (_ a:assignment(max_depth) _ (";" _)* { a })*
 
@@ -524,10 +529,12 @@ peg::parser! {
         /// ```rust
         /// use serde_luaq::{return_statement, LuaValue};
         ///
-        /// assert_eq!(LuaValue::Boolean(true), return_statement(b"return true\n").unwrap());
+        /// assert_eq!(LuaValue::Boolean(true), return_statement(b"return true\n", 16).unwrap());
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
+        ///
+        /// `max_depth` defines the maximum recursion depth for tables.
         pub rule return_statement(max_depth: usize) -> LuaValue<'input>
             = _ "return" __ v:lua_value(max_depth) _ { v }
     }
