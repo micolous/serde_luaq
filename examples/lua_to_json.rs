@@ -52,7 +52,7 @@ struct Args {
     /// Maximum Lua file size to process
     #[arg(long, default_value_t = DEFAULT_SIZE_LIMIT, id = "BYTES")]
     lua_size_limit: usize,
-    
+
     /// Maximum object depth
     #[arg(long, default_value_t = DEFAULT_MAX_DEPTH, id = "DEPTH")]
     max_depth: usize,

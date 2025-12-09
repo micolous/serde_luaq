@@ -1,8 +1,8 @@
 //! Tests with Lua literals
 #![allow(dead_code)]
 
-use std::borrow::Borrow;
 use serde_luaq::{lua_value, return_statement, script, LuaValue};
+use std::borrow::Borrow;
 
 pub const MAX_DEPTH: usize = 16;
 
@@ -32,7 +32,11 @@ pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
 }
 
 pub fn should_error(lua: &'_ [u8]) {
-    assert!(lua_value(lua, MAX_DEPTH).is_err(), "lua value: {}", lua.escape_ascii());
+    assert!(
+        lua_value(lua, MAX_DEPTH).is_err(),
+        "lua value: {}",
+        lua.escape_ascii()
+    );
 
     let mut r = Vec::with_capacity(lua.len() + 7);
     r.extend_from_slice(b"return ");
@@ -47,5 +51,9 @@ pub fn should_error(lua: &'_ [u8]) {
     s.extend_from_slice(b"a = ");
     s.extend_from_slice(lua);
 
-    assert!(script(lua, MAX_DEPTH).is_err(), "lua script: {}", lua.escape_ascii());
+    assert!(
+        script(lua, MAX_DEPTH).is_err(),
+        "lua script: {}",
+        lua.escape_ascii()
+    );
 }

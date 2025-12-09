@@ -484,7 +484,7 @@ peg::parser! {
             }
 
         rule table(max_depth: usize) -> Vec<LuaTableEntry<'input>>
-            = 
+            =
                 ("{" {?
                     if max_depth == 0 {
                         Err("too deeply nested")
