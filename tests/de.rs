@@ -391,6 +391,33 @@ fn strings() -> Result {
         )?
     );
 
+    // Serde handling byte strings as String
+    let expected = serde_luaq::Error::SerdeDeserialize(
+        "invalid value: byte array, expected UTF8 string".to_string(),
+    );
+
+    // RFC 2279 escapes
+    assert_eq!(
+        expected,
+        from_slice::<String>(b"'\\u{d800}'", LuaFormat::Value).unwrap_err(),
+    );
+    assert_eq!(
+        expected,
+        from_slice::<String>(b"'\\u{7FFFFFFF}'", LuaFormat::Value).unwrap_err(),
+    );
+
+    // Binary data
+    assert_eq!(
+        expected,
+        from_slice::<String>(b"'\xC0\xE0'", LuaFormat::Value).unwrap_err(),
+    );
+
+    // Escaped binary data
+    assert_eq!(
+        expected,
+        from_slice::<String>(b"'\\xC0\\xE0'", LuaFormat::Value).unwrap_err(),
+    );
+
     Ok(())
 }
 
