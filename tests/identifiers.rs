@@ -1,8 +1,14 @@
 use serde_luaq::{lua_value, return_statement, script, LuaTableEntry, LuaValue};
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+wasm_bindgen_test_configure!(run_in_browser);
+
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn keywords() -> Result {
     // Assignment to keyword is invalid.
     assert!(script(b"and = true\n").is_err());
@@ -235,6 +241,7 @@ fn keywords() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn contains_keyword() -> Result {
     // Starts with a keyword
     assert_eq!(
@@ -599,6 +606,7 @@ fn contains_keyword() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn invalid() {
     // Starts with a number
     assert!(script(b"1a = true\n").is_err());

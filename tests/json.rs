@@ -5,12 +5,18 @@ use serde_luaq::{
     LuaTableEntry, LuaValue,
 };
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+wasm_bindgen_test_configure!(run_in_browser);
+
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 const DEFAULT_OPTS: JsonConversionOptions = JsonConversionOptions {
     lossy_string: false,
 };
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn table_precedence() -> Result {
     // The last table entry takes precedence
     let expected = json!({"1": 2, "2": 4});
@@ -37,6 +43,7 @@ fn table_precedence() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn table_coersion() -> Result {
     assert_eq!(
         json!([1, 2, 3, 4]),
@@ -140,6 +147,7 @@ fn table_coersion() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn disallowed_floats() -> Result {
     // JSON doesn't allow NaN, +Inf or -Inf
     assert_eq!(
@@ -161,7 +169,9 @@ fn disallowed_floats() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn floats() -> Result {
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     assert_eq!(
         json!(2.3125),
         to_json_value(lua_value(b"0x2.5")?, &DEFAULT_OPTS)?
@@ -190,6 +200,7 @@ fn floats() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn ints() -> Result {
     assert_eq!(json!(2), to_json_value(lua_value(b"0x2")?, &DEFAULT_OPTS)?);
     assert_eq!(

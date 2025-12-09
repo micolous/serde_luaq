@@ -49,6 +49,9 @@ pub enum LuaValue<'a> {
     /// Number type, which can be an [integer][LuaNumber::Integer] or
     /// [floating point][LuaNumber::Float].
     ///
+    /// **Note:** hexadecimal floating point literals are not supported by `serde_luaq` when running
+    /// on WASM targets, because it requires a `strtod()` implementation.
+    ///
     /// ## Compatibility
     ///
     /// * **Lua 5.2 and earlier, and Luau** always use `f64` for numbers.
@@ -489,6 +492,11 @@ mod test {
     use super::*;
     use std::{cmp::PartialEq, fmt::Debug};
 
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+    wasm_bindgen_test_configure!(run_in_browser);
+
     fn assert_cow_eq<'a, T, U>(expected: U, is_borrowed: bool, actual: Cow<'a, T>)
     where
         T: ToOwned + Debug + ?Sized,
@@ -501,6 +509,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn cow() {
         assert_cow_eq("foo", true, from_utf8_cow(b"foo".into()).unwrap());
         assert_cow_eq("foo", true, from_utf8_cow_lossy(b"foo".into()));
@@ -518,6 +527,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn from_bool_option() {
         // bool
         assert_eq!(LuaValue::Boolean(true), LuaValue::from(true));
@@ -530,6 +540,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn from_integer() {
         // i64
         assert_eq!(LuaValue::integer(0), LuaValue::from(0));
@@ -569,6 +580,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn from_float() {
         // f64
         assert_eq!(LuaValue::float(0.), LuaValue::from(0.));

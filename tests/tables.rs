@@ -3,9 +3,15 @@ mod common;
 use crate::common::check;
 use serde_luaq::{lua_value, script, LuaTableEntry, LuaValue};
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+wasm_bindgen_test_configure!(run_in_browser);
+
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn simple_table() -> Result {
     let data =
         br#"{["int"]=1,["seq"]={"a", "b", x3yz = 0x12, ["foo"] = "bar", [5] = 42, [0xa] = 3.14}}"#;
@@ -78,6 +84,7 @@ fn simple_table() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn tables() {
     // Empty object
     let b = b"{}";
