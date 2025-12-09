@@ -17,8 +17,6 @@ default = ["serde_json"]
 serde_json = ["dep:serde_json"]
 
 [dependencies]
-clap = { version = "4.5.28", features = ["derive"] }
-hex = "0.4.3"
 peg = "0.8.5"
 serde = "1.0.210"
 serde_json = { version = "1.0.138", optional = true }
@@ -28,6 +26,7 @@ thiserror = "1.0.63"
 wasm-bindgen = "0.2"
 
 [dev-dependencies]
+clap = { version = "4.5.28", features = ["derive"] }
 flate2 = "1.1.2"
 serde = { version = "1.0.194", features = ["derive"] }
 serde_bytes = "0.11.17"
