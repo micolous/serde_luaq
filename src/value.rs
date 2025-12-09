@@ -20,14 +20,21 @@ pub enum LuaValue<'a> {
 
     /// Lua strings are equivalent to a `[u8]`.
     ///
-    /// We don't attempt to turn this into a `str`, as it is possible for Lua
-    /// strings to contain _optionally-escaped_ binary data, and non-UTF-8
-    /// encoded strings.
+    /// We don't attempt to turn this into a [`str`][], as it is possible for Lua strings to contain
+    /// _optionally-escaped_ binary data, and non-UTF-8 encoded strings.
     ///
     /// This also requires the parser to work on `&[u8]`, rather than `&str`.
     ///
     /// [The parser][crate::lua_value] returns a borrowed byte slice for strings that do not contain
     /// escape sequences.
+    ///
+    /// ## Serde string fields
+    ///
+    /// Whes deserialising with `serde`, you can define Lua string fields as either a
+    /// [`String`][] or `Vec<u8>` (using `#[serde(with = "serde_bytes")]`).
+    ///
+    /// However, if the field is contains invalid RFC 3629 UTF-8 data, it will only deseralise as a
+    /// `Vec<u8>`.
     ///
     /// ## Reference
     ///
@@ -41,6 +48,23 @@ pub enum LuaValue<'a> {
 
     /// Number type, which can be an [integer][LuaNumber::Integer] or
     /// [floating point][LuaNumber::Float].
+    ///
+    /// ## Compatibility
+    ///
+    /// * **Lua 5.2 and earlier, and Luau** always use `f64` for numbers.
+    ///
+    ///   **Lua 5.3 and later, and `serde_luaq`** store integers as `i64`.
+    ///
+    /// * **Lua 5.3** over/underflows decimal integers that didn't fit in a `i64`.
+    ///
+    ///   **Lua 5.4 and `serde_luaq`** coerce them to `f64`.
+    ///
+    ///   Hexadecimal integers over/underflow Lua 5.3 and later, and `serde_luaq`.
+    ///
+    /// * **Luau** adds binary integer literals, which aren't supported by Lua or `serde_luaq`.
+    ///
+    /// * **Luau** adds optional separators in all types integer literals, which aren't supported by
+    ///   Lua or `serde_luaq`.
     Number(LuaNumber),
 
     /// Array / record / object type.

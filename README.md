@@ -116,9 +116,9 @@ that a JSON parser would implement:
 - [x] [Tables][lua3.4.9]
   - [x] Key-values / expression keys (`{["foo"] = "bar"}`, `{[1234]="bar"}`)
   - [x] Name-values / identifier keys (`{foo = "bar"}`)
+    - [x] Identifier validation (Lua 5.4-style)
   - [x] Values / implicit keys (`{"bar"}`)
   - [x] Mixed key types
-  - [x] Identifier validation (Lua 5.4-style)
 
 This library is not designed to replace Lua, nor execute arbitrary Lua code, so these Lua features
 are _intentionally unsupported_:

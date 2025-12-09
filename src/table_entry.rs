@@ -23,7 +23,8 @@ pub enum LuaTableEntry<'a> {
     /// > letters, Arabic-Indic digits, and underscores, not beginning with a
     /// > digit and not being a reserved word.
     ///
-    /// This is represented as a `str`, as these are always valid UTF-8.
+    /// This is represented as a `str`, as these are valid RFC 3629 UTF-8 on
+    /// Lua 5.2 and later with default build settings (`LUA_UCID = 0`).
     NameValue(Cow<'a, str>, LuaValue<'a>),
 
     /// Bare table entry without a key: `"bar"`

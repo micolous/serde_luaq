@@ -66,6 +66,28 @@
 //! );
 //! ```
 //!
+//! ## Using with older / other versions of Lua
+//!
+//! As `serde_luaq` does not execute Lua code, there are only a small number of compatibility
+//! issues:
+//!
+//! * **Lua 5.3** over/underflows decimal integers that don't fit in a `i64`, rather than
+//!   coercing to `f64`.
+//!
+//!   Hexadecimal integers over/underflow in both Lua 5.3 and 5.4.
+//!
+//! * **Lua 5.2 and earlier, and Luau** always use `f64` for numbers, and do not have an integer
+//!   subtype.
+//!
+//! * **Lua 5.1 and earlier** allow locale-dependent letters in identifiers (rather than just
+//!   basic Latin), and `goto` is not a reserved keyword.
+//!
+//!   This affects [table entries in the form `{foo = bar}`][LuaTableEntry::NameValue]
+//!   and parsing in script mode.
+//!
+//! * **Luau** also adds type annotations, binary integer literals, separators for all integer
+//!   literals and string interpolation. None of these features are supported by `serde_luaq`.
+//!
 //! [`peg`]: https://docs.rs/peg/latest/peg/
 //! [`serde`]: https://serde.rs/
 //! [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
