@@ -53,7 +53,7 @@ fn main() -> Result {
     let mut buf = Vec::with_capacity(SIZE_LIMIT);
     f.read_to_end(&mut buf)?;
 
-    let map = to_json_value(return_statement(&buf)?, &Default::default())?;
+    let map = to_json_value(return_statement(&buf, 16)?, &Default::default())?;
 
     let mut f: Box<dyn Write> = if let Some(output) = args.output {
         Box::new(BufWriter::new(

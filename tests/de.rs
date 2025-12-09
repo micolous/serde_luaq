@@ -1,5 +1,6 @@
 //! Serde deserialisation tests.
-
+mod common;
+use crate::common::MAX_DEPTH;
 use serde::Deserialize;
 use serde_luaq::{from_slice, LuaFormat};
 use std::collections::BTreeMap;
@@ -28,27 +29,45 @@ fn struct_simple() {
 
     // Test encoded as a table
     let j = br#"{["int"]=1,["seq"]={"a","b"}}"#;
-    assert_eq!(expected, from_slice(j, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 
     // ...with newlines and extra whitespace
     let j = b"{\n\t[ \"int\" ]=1,\n\t[\"seq\"]={\n\t\t\"a\",\n\t\t\"b\"\n\t}\n}\n";
-    assert_eq!(expected, from_slice(j, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 
     // Test encoded as a script
     let j = b"int = 1\nseq = {\"a\",\"b\"}";
-    assert_eq!(expected, from_slice(j, LuaFormat::Script).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
 
     // ...with a trailing newline
     let j = b"int = 1\nseq = {\"a\",\"b\"}\n";
-    assert_eq!(expected, from_slice(j, LuaFormat::Script).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
 
     // ...with DOS linefeeds
     let j = b"int = 1\r\nseq = {\"a\",\"b\"}";
-    assert_eq!(expected, from_slice(j, LuaFormat::Script).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
 
     // ...with DOS linefeeds and trailing new line
     let j = b"int = 1\r\nseq = {\"a\",\"b\"}\r\n";
-    assert_eq!(expected, from_slice(j, LuaFormat::Script).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
 }
 
 /// Deserialise a struct with a [`BTreeMap`] field
@@ -64,10 +83,16 @@ fn btreemap_field() {
     let expected = Test {
         m: BTreeMap::from([(1, "hello".to_string()), (2, "goodbye".to_string())]),
     };
-    assert_eq!(expected, from_slice(j, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 
     let j = br#"m = {[1]="hello",[2]="goodbye"}"#;
-    assert_eq!(expected, from_slice(j, LuaFormat::Script).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(j, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
 }
 
 /// Deseralise a [`BTreeMap`] directly
@@ -77,14 +102,26 @@ fn btreemap_bare() {
     let lua_return = br#"return {[1]="hello",[2]="goodbye"}"#;
     let lua_value = br#"{[1]="hello",[2]="goodbye"}"#;
     let expected = BTreeMap::from([(1, "hello".to_string()), (2, "goodbye".to_string())]);
-    assert_eq!(expected, from_slice(lua_return, LuaFormat::Return).unwrap());
-    assert_eq!(expected, from_slice(lua_value, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 
     let lua_return = br#"return {[true]="hello",[false]="goodbye"}"#;
     let lua_value = br#"{[true]="hello",[false]="goodbye"}"#;
     let expected = BTreeMap::from([(true, "hello".to_string()), (false, "goodbye".to_string())]);
-    assert_eq!(expected, from_slice(lua_return, LuaFormat::Return).unwrap());
-    assert_eq!(expected, from_slice(lua_value, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 }
 
 /// Deserialise a [`BTreeMap`] with an `enum` key
@@ -107,9 +144,18 @@ fn btreemap_enum_keys() {
         (Enum::C, "goodbye".to_string()),
     ]);
 
-    assert_eq!(expected, from_slice(lua_return, LuaFormat::Return).unwrap());
-    assert_eq!(expected, from_slice(lua_script, LuaFormat::Script).unwrap());
-    assert_eq!(expected, from_slice(lua_value, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_script, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 }
 
 /// Deseraliase an `enum` with multiple variants.
@@ -128,32 +174,65 @@ fn enum_variants() {
     let lua_return = br#"return "Unit""#;
     let lua_value = br#""Unit""#;
     let expected = E::Unit;
-    assert_eq!(expected, from_slice(lua_return, LuaFormat::Return).unwrap());
-    assert_eq!(expected, from_slice(lua_value, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 
     let lua_return = br#"return {["Newtype"]=1}"#;
     let lua_script = b"Newtype = 1\n";
     let lua_value = br#"{["Newtype"]=1}"#;
     let expected = E::Newtype(1);
-    assert_eq!(expected, from_slice(lua_return, LuaFormat::Return).unwrap());
-    assert_eq!(expected, from_slice(lua_script, LuaFormat::Script).unwrap());
-    assert_eq!(expected, from_slice(lua_value, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_script, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 
     let lua_return = br#"return {["Tuple"]={1,2}}"#;
     let lua_script = b"Tuple = {1,2}\n";
     let lua_value = br#"{["Tuple"]={1,2}}"#;
     let expected = E::Tuple(1, 2);
-    assert_eq!(expected, from_slice(lua_return, LuaFormat::Return).unwrap());
-    assert_eq!(expected, from_slice(lua_script, LuaFormat::Script).unwrap());
-    assert_eq!(expected, from_slice(lua_value, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_script, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 
     let lua_return = br#"return {["Struct"]={["a"]=1}}"#;
     let lua_script = br#"Struct = {["a"]=1}"#;
     let lua_value = br#"{["Struct"]={["a"]=1}}"#;
     let expected = E::Struct { a: 1 };
-    assert_eq!(expected, from_slice(lua_return, LuaFormat::Return).unwrap());
-    assert_eq!(expected, from_slice(lua_script, LuaFormat::Script).unwrap());
-    assert_eq!(expected, from_slice(lua_value, LuaFormat::Value).unwrap());
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_script, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
 }
 
 #[test]
@@ -204,34 +283,34 @@ fn integers() {
     const RETURN_INTEGERS_DEC: &'static [u8] = include_bytes!("data/return/integers_dec.lua");
     assert_eq!(
         expected,
-        from_slice(RETURN_INTEGERS_DEC, LuaFormat::Return).unwrap()
+        from_slice(RETURN_INTEGERS_DEC, LuaFormat::Return, MAX_DEPTH).unwrap()
     );
     const RETURN_INTEGERS_HEX: &'static [u8] = include_bytes!("data/return/integers_hex.lua");
     assert_eq!(
         expected,
-        from_slice(RETURN_INTEGERS_HEX, LuaFormat::Return).unwrap()
+        from_slice(RETURN_INTEGERS_HEX, LuaFormat::Return, MAX_DEPTH).unwrap()
     );
 
     const SCRIPT_INTEGERS_DEC: &'static [u8] = include_bytes!("data/script/integers_dec.lua");
     assert_eq!(
         expected,
-        from_slice(SCRIPT_INTEGERS_DEC, LuaFormat::Script).unwrap()
+        from_slice(SCRIPT_INTEGERS_DEC, LuaFormat::Script, MAX_DEPTH).unwrap()
     );
     const SCRIPT_INTEGERS_HEX: &'static [u8] = include_bytes!("data/script/integers_hex.lua");
     assert_eq!(
         expected,
-        from_slice(SCRIPT_INTEGERS_HEX, LuaFormat::Script).unwrap()
+        from_slice(SCRIPT_INTEGERS_HEX, LuaFormat::Script, MAX_DEPTH).unwrap()
     );
 
     const VALUE_INTEGERS_DEC: &'static [u8] = include_bytes!("data/value/integers_dec.lua");
     assert_eq!(
         expected,
-        from_slice(VALUE_INTEGERS_DEC, LuaFormat::Value).unwrap()
+        from_slice(VALUE_INTEGERS_DEC, LuaFormat::Value, MAX_DEPTH).unwrap()
     );
     const VALUE_INTEGERS_HEX: &'static [u8] = include_bytes!("data/value/integers_hex.lua");
     assert_eq!(
         expected,
-        from_slice(VALUE_INTEGERS_HEX, LuaFormat::Value).unwrap()
+        from_slice(VALUE_INTEGERS_HEX, LuaFormat::Value, MAX_DEPTH).unwrap()
     );
 }
 
@@ -245,15 +324,21 @@ fn booleans() -> Result {
     }
 
     let expected = Booleans { a: true, b: None };
-    assert_eq!(expected, from_slice(b"{a = true}", LuaFormat::Value)?);
     assert_eq!(
         expected,
-        from_slice(b"{a = true, b = nil}", LuaFormat::Value)?
+        from_slice(b"{a = true}", LuaFormat::Value, MAX_DEPTH)?
     );
-    assert_eq!(expected, from_slice(b"{['a'] = true}", LuaFormat::Value)?);
     assert_eq!(
         expected,
-        from_slice(b"{['a'] = true, b = nil}", LuaFormat::Value)?
+        from_slice(b"{a = true, b = nil}", LuaFormat::Value, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected,
+        from_slice(b"{['a'] = true}", LuaFormat::Value, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected,
+        from_slice(b"{['a'] = true, b = nil}", LuaFormat::Value, MAX_DEPTH)?
     );
 
     let expected = Booleans {
@@ -262,19 +347,23 @@ fn booleans() -> Result {
     };
     assert_eq!(
         expected,
-        from_slice(b"{a = false, b = true}", LuaFormat::Value)?
+        from_slice(b"{a = false, b = true}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice(b"{['a'] = false, b = true}", LuaFormat::Value)?
+        from_slice(b"{['a'] = false, b = true}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice(b"{a = false, ['b'] = true}", LuaFormat::Value)?
+        from_slice(b"{a = false, ['b'] = true}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice(b"{['a'] = false, ['b'] = true}", LuaFormat::Value)?
+        from_slice(
+            b"{['a'] = false, ['b'] = true}",
+            LuaFormat::Value,
+            MAX_DEPTH
+        )?
     );
 
     let expected = Booleans {
@@ -283,19 +372,23 @@ fn booleans() -> Result {
     };
     assert_eq!(
         expected,
-        from_slice(b"{a = false, b = false}", LuaFormat::Value)?
+        from_slice(b"{a = false, b = false}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice(b"{a = false, ['b'] = false}", LuaFormat::Value)?
+        from_slice(b"{a = false, ['b'] = false}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice(b"{['a'] = false, ['b'] = false}", LuaFormat::Value)?
+        from_slice(
+            b"{['a'] = false, ['b'] = false}",
+            LuaFormat::Value,
+            MAX_DEPTH
+        )?
     );
     assert_eq!(
         expected,
-        from_slice(b"{['a'] = false, b = false}", LuaFormat::Value)?
+        from_slice(b"{['a'] = false, b = false}", LuaFormat::Value, MAX_DEPTH)?
     );
 
     #[derive(Deserialize, PartialEq, Debug, Default)]
@@ -305,12 +398,18 @@ fn booleans() -> Result {
         b: Option<bool>,
     }
     let expected = Booleans2 { a: false, b: None };
-    assert_eq!(expected, from_slice(b"{}", LuaFormat::Value)?);
-    assert_eq!(expected, from_slice(b"{b = nil}", LuaFormat::Value)?);
-    assert_eq!(expected, from_slice(b"{a = false}", LuaFormat::Value)?);
+    assert_eq!(expected, from_slice(b"{}", LuaFormat::Value, MAX_DEPTH)?);
     assert_eq!(
         expected,
-        from_slice(b"{a = false, b = nil}", LuaFormat::Value)?
+        from_slice(b"{b = nil}", LuaFormat::Value, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected,
+        from_slice(b"{a = false}", LuaFormat::Value, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected,
+        from_slice(b"{a = false, b = nil}", LuaFormat::Value, MAX_DEPTH)?
     );
 
     Ok(())
@@ -340,7 +439,8 @@ fn field_naming() -> Result {
         expected,
         from_slice(
             b"{['foo'] = 1, ['1'] = 2, snake_case = 3}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
 
@@ -372,14 +472,16 @@ fn strings() -> Result {
         expected,
         from_slice(
             b"{a = 64, b = 'hello', c = '@', d = 'world'}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
     assert_eq!(
         expected,
         from_slice(
             br"{a = 0x40, b = {104, 101, 108, 108, 111}, c = '\u{40}', d = '\119\111\114\108\100'}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
 
@@ -393,14 +495,14 @@ fn strings() -> Result {
         expected,
         from_slice(
             b"{a = 32, b = '\0\\1\\2\\3\\004\\5\\xC0\\xE0\\0', c = '#', d = '\\u{65E5}\\u{672C}\\u{8A9E}'}",
-            LuaFormat::Value
+            LuaFormat::Value, MAX_DEPTH,
         )?
     );
     assert_eq!(
         expected,
         from_slice(
             b"{a = 0x20, b = '\0\x01\x02\x03\x04\x05\xC0\xE0\0', c = '\\35', d = '\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e'}",
-            LuaFormat::Value
+            LuaFormat::Value, MAX_DEPTH,
         )?
     );
 
@@ -412,23 +514,23 @@ fn strings() -> Result {
     // RFC 2279 escapes
     assert_eq!(
         expected,
-        from_slice::<String>(b"'\\u{d800}'", LuaFormat::Value).unwrap_err(),
+        from_slice::<String>(b"'\\u{d800}'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
     );
     assert_eq!(
         expected,
-        from_slice::<String>(b"'\\u{7FFFFFFF}'", LuaFormat::Value).unwrap_err(),
+        from_slice::<String>(b"'\\u{7FFFFFFF}'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
     );
 
     // Binary data
     assert_eq!(
         expected,
-        from_slice::<String>(b"'\xC0\xE0'", LuaFormat::Value).unwrap_err(),
+        from_slice::<String>(b"'\xC0\xE0'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
     );
 
     // Escaped binary data
     assert_eq!(
         expected,
-        from_slice::<String>(b"'\\xC0\\xE0'", LuaFormat::Value).unwrap_err(),
+        from_slice::<String>(b"'\\xC0\\xE0'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
     );
 
     Ok(())
@@ -440,108 +542,157 @@ fn arrays() -> Result {
     let expected = ("hello", "world");
     assert_eq!(
         expected,
-        from_slice(b"{'hello', 'world'}", LuaFormat::Value)?
+        from_slice(b"{'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice(b"{[1] = 'hello', [2] = 'world'}", LuaFormat::Value)?
+        from_slice(
+            b"{[1] = 'hello', [2] = 'world'}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
 
     // Any gaps at the start of the array are filled with nil/None
     let expected = [None, Some("hello"), Some("world")];
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{nil, 'hello', 'world'}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(b"{nil, 'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{[2] = 'hello', [3] = 'world'}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(
+            b"{[2] = 'hello', [3] = 'world'}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
     assert_eq!(
         expected,
         from_slice::<[Option<&str>; 3]>(
             b"{nil, nil, nil, [2] = 'hello', [3] = 'world'}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{[3] = 'world', [2] = 'hello'}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(
+            b"{[3] = 'world', [2] = 'hello'}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
 
     // Gaps in the middle of the array are filled with nil/None
     let expected = [Some("hello"), None, Some("world")];
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', nil, 'world'}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(b"{'hello', nil, 'world'}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', [3] = 'world'}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(b"{'hello', [3] = 'world'}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{[1] = 'hello', [3] = 'world'}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(
+            b"{[1] = 'hello', [3] = 'world'}",
+            LuaFormat::Value,
+            MAX_DEPTH
+        )?
     );
     assert_eq!(
         expected,
         from_slice::<[Option<&str>; 3]>(
             b"{nil, nil, nil, [1] = 'hello', [3] = 'world'}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{[3] = 'world', [1] = 'hello'}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(
+            b"{[3] = 'world', [1] = 'hello'}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
 
     // Gaps at the end are not filled
     let expected = [Some("hello"), Some("world"), None];
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', 'world', nil}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(b"{'hello', 'world', nil}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', 'world', [3] = nil}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(
+            b"{'hello', 'world', [3] = nil}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
     assert_eq!(
         expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', [2] = 'world', [3] = nil}", LuaFormat::Value)?
+        from_slice::<[Option<&str>; 3]>(
+            b"{'hello', [2] = 'world', [3] = nil}",
+            LuaFormat::Value,
+            MAX_DEPTH
+        )?
     );
     assert_eq!(
         expected,
         from_slice::<[Option<&str>; 3]>(
             b"{[1] = 'hello', [2] = 'world', [3] = nil}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
 
-    assert!(from_slice::<[Option<&str>; 3]>(b"{'hello', 'world'}", LuaFormat::Value).is_err());
     assert!(
-        from_slice::<[Option<&str>; 3]>(b"{[1] = 'hello', [2] = 'world'}", LuaFormat::Value)
+        from_slice::<[Option<&str>; 3]>(b"{'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)
             .is_err()
     );
+    assert!(from_slice::<[Option<&str>; 3]>(
+        b"{[1] = 'hello', [2] = 'world'}",
+        LuaFormat::Value,
+        MAX_DEPTH,
+    )
+    .is_err());
 
     // Mix implicit keys with a Map<int, ...>
     let expected = BTreeMap::from([(1, Some("hello")), (2, Some("world")), (3, None)]);
     assert_eq!(
         expected,
-        from_slice::<BTreeMap<i64, Option<&str>>>(b"{'hello', 'world', nil}", LuaFormat::Value)?
+        from_slice::<BTreeMap<i64, Option<&str>>>(
+            b"{'hello', 'world', nil}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
     assert_eq!(
         expected,
-        from_slice(b"{'hello', 'world', [3] = nil}", LuaFormat::Value)?
+        from_slice(
+            b"{'hello', 'world', [3] = nil}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
     assert_eq!(
         expected,
-        from_slice(b"{'hello', [2] = 'world', [3] = nil}", LuaFormat::Value)?
+        from_slice(
+            b"{'hello', [2] = 'world', [3] = nil}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
     assert_eq!(
         expected,
         from_slice(
             b"{[1] = 'hello', [2] = 'world', [3] = nil}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
 
@@ -549,13 +700,18 @@ fn arrays() -> Result {
     let expected: Vec<Option<&str>> = vec![None, Some("hello"), None, Some("world"), None];
     assert_eq!(
         expected,
-        from_slice::<Vec<_>>(b"{nil, 'hello', nil, 'world', nil}", LuaFormat::Value)?
+        from_slice::<Vec<_>>(
+            b"{nil, 'hello', nil, 'world', nil}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
     );
     assert_eq!(
         expected,
         from_slice::<Vec<_>>(
             b"{[2] = 'hello', [4] = 'world', [5] = nil}",
-            LuaFormat::Value
+            LuaFormat::Value,
+            MAX_DEPTH,
         )?
     );
 
@@ -563,11 +719,11 @@ fn arrays() -> Result {
     let expected: Vec<Option<i8>> = vec![None, None, None];
     assert_eq!(
         expected,
-        from_slice::<Vec<_>>(b"{[3] = nil}", LuaFormat::Value)?
+        from_slice::<Vec<_>>(b"{[3] = nil}", LuaFormat::Value, MAX_DEPTH)?
     );
     assert_eq!(
         expected,
-        from_slice::<Vec<_>>(b"{nil, nil, nil}", LuaFormat::Value)?
+        from_slice::<Vec<_>>(b"{nil, nil, nil}", LuaFormat::Value, MAX_DEPTH)?
     );
 
     Ok(())

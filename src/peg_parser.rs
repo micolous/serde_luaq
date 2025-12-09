@@ -432,39 +432,41 @@ peg::parser! {
         /// ```rust
         /// use serde_luaq::{lua_value, LuaValue};
         ///
-        /// assert_eq!(LuaValue::Boolean(true), lua_value(b"true").unwrap());
-        /// assert_eq!(LuaValue::Boolean(false), lua_value(b"  false\r\n  ").unwrap());
+        /// assert_eq!(LuaValue::Boolean(true), lua_value(b"true", 16).unwrap());
+        /// assert_eq!(LuaValue::Boolean(false), lua_value(b"  false\r\n  ", 16).unwrap());
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        pub rule lua_value() -> LuaValue<'input>
+        ///
+        /// `max_depth` defines the maximum recursion depth for tables.
+        pub rule lua_value(max_depth: usize) -> LuaValue<'input>
             = (
                 _ "nil" _ { LuaValue::Nil } /
                 _ "true" _ { LuaValue::Boolean(true) } /
                 _ "false" _ { LuaValue::Boolean(false) } /
                 _ n:numbers() _ { LuaValue::Number(n) } /
                 _ s:string() _ { LuaValue::String(s) } /
-                _ t:table() _ { LuaValue::Table(t) } /
+                _ t:table(max_depth.saturating_sub(1)) _ { LuaValue::Table(t) } /
                 expected!("Lua value")
             )
 
-        rule table_entry() -> Option<LuaTableEntry<'input>>
+        rule table_entry(max_depth: usize) -> Option<LuaTableEntry<'input>>
             = (
                 // ["foo"]="bar"
                 // [1234]="bar"
-                _ "[" _ key:lua_value() _ "]" _ "=" _ val:lua_value() _
+                _ "[" _ key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth) _
                 {
                     Some(LuaTableEntry::KeyValue(key, val))
                 } /
 
                 // foo = "bar"
-                _ key:identifier() _ "=" _ val:lua_value() _
+                _ key:identifier() _ "=" _ val:lua_value(max_depth) _
                 {
                     Some(LuaTableEntry::NameValue(Cow::Borrowed(key), val))
                 } /
 
                 // "foo"
-                _ val:lua_value() _
+                _ val:lua_value(max_depth) _
                 {
                     Some(LuaTableEntry::Value(val))
                 } /
@@ -477,17 +479,30 @@ peg::parser! {
                 expected!("Lua table entry")
             )
 
-        rule table_entries() -> Vec<LuaTableEntry<'input>>
-            = entries:table_entry() ** ("," / ";") {
+        rule table_entries(max_depth: usize) -> Vec<LuaTableEntry<'input>>
+            = entries:table_entry(max_depth) ** ("," / ";") {
                 // Remove empty entries.
                 entries.into_iter().flatten().collect()
             }
 
-        rule table() -> Vec<LuaTableEntry<'input>>
-            = "{" _ e:table_entries() _ "}" { e }
+        rule table(max_depth: usize) -> Vec<LuaTableEntry<'input>>
+            =
+                ("{" {?
+                    // rust-peg doesn't have a stack limit; workaround based on
+                    // https://github.com/kevinmehall/rust-peg/issues/282#issuecomment-2169784035
+                    if max_depth == 0 {
+                        Err("too deeply nested")
+                    } else {
+                        Ok(())
+                    }
+                })
+                _
+                e:table_entries(max_depth)
+                _
+                "}" { e }
 
-        rule assignment() -> (&'input str, LuaValue<'input>)
-            = i:identifier() _ "=" _ v:lua_value() { (i, v) }
+        rule assignment(max_depth: usize) -> (&'input str, LuaValue<'input>)
+            = i:identifier() _ "=" _ v:lua_value(max_depth) { (i, v) }
 
         /// Parse a Lua script containing variable assignments into a [`Vec`] of
         /// `(&str, LuaValue)`.
@@ -500,24 +515,29 @@ peg::parser! {
         ///         ("hello", LuaValue::Boolean(true)),
         ///         ("goodbye", LuaValue::Boolean(false)),
         ///     ],
-        ///     script(b"hello = true\ngoodbye = false").unwrap()
+        ///     script(b"hello = true\ngoodbye = false", 16).unwrap()
         /// );
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        pub rule script() -> Vec<(&'input str, LuaValue<'input>)>
-            = (_ a:assignment() _ (";" _)* { a })*
+        ///
+        /// `max_depth` defines the maximum recursion depth for tables.
+
+        pub rule script(max_depth: usize) -> Vec<(&'input str, LuaValue<'input>)>
+            = (_ a:assignment(max_depth) _ (";" _)* { a })*
 
         /// Parse a Lua `return` stamement into a [`LuaValue`].
         ///
         /// ```rust
         /// use serde_luaq::{return_statement, LuaValue};
         ///
-        /// assert_eq!(LuaValue::Boolean(true), return_statement(b"return true\n").unwrap());
+        /// assert_eq!(LuaValue::Boolean(true), return_statement(b"return true\n", 16).unwrap());
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        pub rule return_statement() -> LuaValue<'input>
-            = _ "return" __ v:lua_value() _ { v }
+        ///
+        /// `max_depth` defines the maximum recursion depth for tables.
+        pub rule return_statement(max_depth: usize) -> LuaValue<'input>
+            = _ "return" __ v:lua_value(max_depth) _ { v }
     }
 }

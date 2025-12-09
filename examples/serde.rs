@@ -32,7 +32,7 @@ struct Car {
 fn main() -> Result<()> {
     let car: Car = from_slice(br#"
         {active = true, model = "Volkswagen Golf", transmission = "Automatic", engine = {v = 1499, kw = 90}}
-    "#, LuaFormat::Value)?;
+    "#, LuaFormat::Value, 5)?;
 
     println!("Car: {car:?}");
 
@@ -42,6 +42,7 @@ fn main() -> Result<()> {
         br#"
         {driver = "Boris", price = nil}
     "#,
+        5,
     )?;
 
     println!("Val: {val:?}");

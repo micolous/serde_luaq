@@ -1,7 +1,7 @@
 //! Tests for unsupported language features, which should _fail_ parsing.
 mod common;
 
-use crate::common::should_error;
+use crate::common::{should_error, MAX_DEPTH};
 use serde_luaq::{lua_value, return_statement, script, LuaValue};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -102,7 +102,7 @@ fn bitwise_not() {
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn block_do() {
-    assert!(script(b"a = 3\ndo\n  a = 4\nend\n").is_err());
+    assert!(script(b"a = 3\ndo\n  a = 4\nend\n", MAX_DEPTH).is_err());
 }
 
 #[test]
@@ -116,29 +116,29 @@ fn coroutine() {
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn functions() {
-    assert!(script(b"function a()\n  return 3\nend\nb = a()\n").is_err());
-    assert!(script(b"function a()\n  return 3\nend\nb=a()\n").is_err());
-    assert!(script(b"return 3\n").is_err());
-    assert!(lua_value(b"return 3\n").is_err());
+    assert!(script(b"function a()\n  return 3\nend\nb = a()\n", MAX_DEPTH).is_err());
+    assert!(script(b"function a()\n  return 3\nend\nb=a()\n", MAX_DEPTH).is_err());
+    assert!(script(b"return 3\n", MAX_DEPTH).is_err());
+    assert!(lua_value(b"return 3\n", MAX_DEPTH).is_err());
 
     // But this should be valid for return statements.
     assert_eq!(
         LuaValue::integer(3),
-        return_statement(b"return 3\n").unwrap()
+        return_statement(b"return 3\n", MAX_DEPTH).unwrap()
     );
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn length_operator() {
-    assert!(script(b"a = [1, 2, 3]\nb = #a\n").is_err());
-    assert!(script(b"a=[1,2,3]\nb=#a\n").is_err());
+    assert!(script(b"a = [1, 2, 3]\nb = #a\n", MAX_DEPTH).is_err());
+    assert!(script(b"a=[1,2,3]\nb=#a\n", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn local() {
-    assert!(script(b"local a = 3\n").is_err());
+    assert!(script(b"local a = 3\n", MAX_DEPTH).is_err());
 }
 
 #[test]
@@ -168,48 +168,48 @@ fn parentheses() {
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn referencing() {
-    assert!(script(b"a = 3\nb = a\n").is_err());
-    assert!(script(b"a = {}\na.b = 3\n").is_err());
+    assert!(script(b"a = 3\nb = a\n", MAX_DEPTH).is_err());
+    assert!(script(b"a = {}\na.b = 3\n", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn relational_eq() {
-    assert!(script(b"a = 3\nb = a == 3\n").is_err());
+    assert!(script(b"a = 3\nb = a == 3\n", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn relational_neq() {
-    assert!(script(b"a = 3\nb = a ~= 1\n").is_err());
+    assert!(script(b"a = 3\nb = a ~= 1\n", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn relational_lt() {
-    assert!(script(b"a = 3\nb = a < 1\n").is_err());
-    assert!(script(b"a = 3\nb=a<1\n").is_err());
+    assert!(script(b"a = 3\nb = a < 1\n", MAX_DEPTH).is_err());
+    assert!(script(b"a = 3\nb=a<1\n", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn relational_lte() {
-    assert!(script(b"a = 3\nb = a <= 1\n").is_err());
-    assert!(script(b"a = 3\nb=a<=1\n").is_err());
+    assert!(script(b"a = 3\nb = a <= 1\n", MAX_DEPTH).is_err());
+    assert!(script(b"a = 3\nb=a<=1\n", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn relational_gt() {
-    assert!(script(b"a = 3\nb = a > 1\n").is_err());
-    assert!(script(b"a = 3\nb=a>1\n").is_err());
+    assert!(script(b"a = 3\nb = a > 1\n", MAX_DEPTH).is_err());
+    assert!(script(b"a = 3\nb=a>1\n", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn relational_gte() {
-    assert!(script(b"a = 3\nb = a >= 1\n").is_err());
-    assert!(script(b"a = 3\nb=a>=1\n").is_err());
+    assert!(script(b"a = 3\nb = a >= 1\n", MAX_DEPTH).is_err());
+    assert!(script(b"a = 3\nb=a>=1\n", MAX_DEPTH).is_err());
 }
 
 #[test]
@@ -222,6 +222,6 @@ fn string_concat() {
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn vararg_assignments() {
-    assert!(script(b"a, b = 'hello', 'world'\n").is_err());
-    assert!(script(b"a,b='hello','world'\n").is_err());
+    assert!(script(b"a, b = 'hello', 'world'\n", MAX_DEPTH).is_err());
+    assert!(script(b"a,b='hello','world'\n", MAX_DEPTH).is_err());
 }

@@ -887,14 +887,14 @@ pub enum LuaFormat {
 ///
 /// When matching Lua table keys to Rust identifiers, table keys must be encoded
 /// as valid UTF-8.
-pub fn from_slice<'a, T>(b: &'a [u8], format: LuaFormat) -> Result<T, Error>
+pub fn from_slice<'a, T>(b: &'a [u8], format: LuaFormat, max_depth: usize) -> Result<T, Error>
 where
     T: de::Deserialize<'a>,
 {
     let v = match format {
-        LuaFormat::Value => lua_value(b)?,
-        LuaFormat::Script => script(b)?.into_iter().collect(),
-        LuaFormat::Return => return_statement(b)?,
+        LuaFormat::Value => lua_value(b, max_depth)?,
+        LuaFormat::Script => script(b, max_depth)?.into_iter().collect(),
+        LuaFormat::Return => return_statement(b, max_depth)?,
     };
 
     Deserialize::deserialize(v)
@@ -911,9 +911,9 @@ where
 ///
 /// This method assumes that a Lua expression is encoded as valid UTF-8.
 #[inline]
-pub fn from_str<'a, T>(b: &'a str, format: LuaFormat) -> Result<T, Error>
+pub fn from_str<'a, T>(b: &'a str, format: LuaFormat, max_depth: usize) -> Result<T, Error>
 where
     T: de::Deserialize<'a>,
 {
-    from_slice(b.as_bytes(), format)
+    from_slice(b.as_bytes(), format, max_depth)
 }
