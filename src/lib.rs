@@ -100,9 +100,6 @@ mod serde_json;
 mod table_entry;
 mod value;
 
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-use std::ffi::CString;
-
 pub use crate::{
     de::{from_slice, from_str, LuaFormat},
     error::{Error, Result},
@@ -180,8 +177,10 @@ fn valid_lua_identifier(i: &[u8]) -> bool {
 ///
 /// This supports parsing hexadecimal floating points.
 fn strtod(i: &str) -> Option<f64> {
+    use std::ffi::{c_char, CString};
+
     extern "C" {
-        fn strtod(nptr: *const i8, endptr: &mut usize) -> f64;
+        fn strtod(nptr: *const c_char, endptr: &mut usize) -> f64;
     }
 
     // Length excludes null byte
