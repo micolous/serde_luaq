@@ -2,7 +2,8 @@
 //! structures from Lua 5.4 source code, _without requiring Lua itself_.
 //!
 //! The goal is to be able to read state from software (mostly games) which is serialised using
-//! [Lua `%q` formatting][format].
+//! [Lua `%q` formatting][format] (and similar techniques) _without_ requiring arbitrary code
+//! execution.
 //!
 //! This library consists of four parts:
 //!
