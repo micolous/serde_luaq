@@ -1,6 +1,6 @@
 [package]
 name = "serde_luaq"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Michael Farrell <micolous+git@gmail.com>"]
 description = "A Lua %q serialization file format"
 edition = "2021"
