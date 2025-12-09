@@ -437,34 +437,34 @@ peg::parser! {
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        pub rule lua_value() -> LuaValue<'input>
+        pub rule lua_value(max_depth: usize) -> LuaValue<'input>
             = (
                 _ "nil" _ { LuaValue::Nil } /
                 _ "true" _ { LuaValue::Boolean(true) } /
                 _ "false" _ { LuaValue::Boolean(false) } /
                 _ n:numbers() _ { LuaValue::Number(n) } /
                 _ s:string() _ { LuaValue::String(s) } /
-                _ t:table() _ { LuaValue::Table(t) } /
+                _ t:table(max_depth.saturating_sub(1)) _ { LuaValue::Table(t) } /
                 expected!("Lua value")
             )
 
-        rule table_entry() -> Option<LuaTableEntry<'input>>
+        rule table_entry(max_depth: usize) -> Option<LuaTableEntry<'input>>
             = (
                 // ["foo"]="bar"
                 // [1234]="bar"
-                _ "[" _ key:lua_value() _ "]" _ "=" _ val:lua_value() _
+                _ "[" _ key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth) _
                 {
                     Some(LuaTableEntry::KeyValue(key, val))
                 } /
 
                 // foo = "bar"
-                _ key:identifier() _ "=" _ val:lua_value() _
+                _ key:identifier() _ "=" _ val:lua_value(max_depth) _
                 {
                     Some(LuaTableEntry::NameValue(Cow::Borrowed(key), val))
                 } /
 
                 // "foo"
-                _ val:lua_value() _
+                _ val:lua_value(max_depth) _
                 {
                     Some(LuaTableEntry::Value(val))
                 } /
@@ -477,17 +477,28 @@ peg::parser! {
                 expected!("Lua table entry")
             )
 
-        rule table_entries() -> Vec<LuaTableEntry<'input>>
-            = entries:table_entry() ** ("," / ";") {
+        rule table_entries(max_depth: usize) -> Vec<LuaTableEntry<'input>>
+            = entries:table_entry(max_depth) ** ("," / ";") {
                 // Remove empty entries.
                 entries.into_iter().flatten().collect()
             }
 
-        rule table() -> Vec<LuaTableEntry<'input>>
-            = "{" _ e:table_entries() _ "}" { e }
+        rule table(max_depth: usize) -> Vec<LuaTableEntry<'input>>
+            = 
+                ("{" {?
+                    if max_depth == 0 {
+                        Err("too deeply nested")
+                    } else {
+                        Ok(())
+                    }
+                })
+                _
+                e:table_entries(max_depth)
+                _
+                "}" { e }
 
-        rule assignment() -> (&'input str, LuaValue<'input>)
-            = i:identifier() _ "=" _ v:lua_value() { (i, v) }
+        rule assignment(max_depth: usize) -> (&'input str, LuaValue<'input>)
+            = i:identifier() _ "=" _ v:lua_value(max_depth) { (i, v) }
 
         /// Parse a Lua script containing variable assignments into a [`Vec`] of
         /// `(&str, LuaValue)`.
@@ -505,8 +516,8 @@ peg::parser! {
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        pub rule script() -> Vec<(&'input str, LuaValue<'input>)>
-            = (_ a:assignment() _ (";" _)* { a })*
+        pub rule script(max_depth: usize) -> Vec<(&'input str, LuaValue<'input>)>
+            = (_ a:assignment(max_depth) _ (";" _)* { a })*
 
         /// Parse a Lua `return` stamement into a [`LuaValue`].
         ///
@@ -517,7 +528,7 @@ peg::parser! {
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        pub rule return_statement() -> LuaValue<'input>
-            = _ "return" __ v:lua_value() _ { v }
+        pub rule return_statement(max_depth: usize) -> LuaValue<'input>
+            = _ "return" __ v:lua_value(max_depth) _ { v }
     }
 }

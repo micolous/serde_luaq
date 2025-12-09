@@ -1,7 +1,7 @@
 //! String literal tests
 mod common;
 
-use crate::common::check;
+use crate::common::{check, MAX_DEPTH};
 use serde_luaq::{lua_value, LuaTableEntry, LuaValue};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -132,15 +132,15 @@ fn long_string() {
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn newlines() {
     // Short strings need to escape newlines
-    assert!(lua_value(b"'\nfoo'").is_err());
-    assert!(lua_value(b"'\rfoo'").is_err());
-    assert!(lua_value(b"'\r\nfoo'").is_err());
-    assert!(lua_value(b"'\n\rfoo'").is_err());
+    assert!(lua_value(b"'\nfoo'", MAX_DEPTH).is_err());
+    assert!(lua_value(b"'\rfoo'", MAX_DEPTH).is_err());
+    assert!(lua_value(b"'\r\nfoo'", MAX_DEPTH).is_err());
+    assert!(lua_value(b"'\n\rfoo'", MAX_DEPTH).is_err());
 
-    assert!(lua_value(b"\"\nfoo\"").is_err());
-    assert!(lua_value(b"\"\rfoo\"").is_err());
-    assert!(lua_value(b"\"\r\nfoo\"").is_err());
-    assert!(lua_value(b"\"\n\rfoo\"").is_err());
+    assert!(lua_value(b"\"\nfoo\"", MAX_DEPTH).is_err());
+    assert!(lua_value(b"\"\rfoo\"", MAX_DEPTH).is_err());
+    assert!(lua_value(b"\"\r\nfoo\"", MAX_DEPTH).is_err());
+    assert!(lua_value(b"\"\n\rfoo\"", MAX_DEPTH).is_err());
 
     // Backslash with line break.
     // Lua normalises these to the platform's newline character, but we retain these as-is because
@@ -340,49 +340,49 @@ fn unicode_escapes() {
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn invalid_escapes() {
-    assert!(lua_value(br"'\256'").is_err());
-    assert!(lua_value(br"'\c'").is_err());
-    assert!(lua_value(br"'\x'").is_err());
-    assert!(lua_value(br"'\x0'").is_err());
-    assert!(lua_value(br"'\xyz'").is_err());
-    assert!(lua_value(br"'\u{80000000}'").is_err());
-    assert!(lua_value(br"'\u{-80}'").is_err());
+    assert!(lua_value(br"'\256'", MAX_DEPTH).is_err());
+    assert!(lua_value(br"'\c'", MAX_DEPTH).is_err());
+    assert!(lua_value(br"'\x'", MAX_DEPTH).is_err());
+    assert!(lua_value(br"'\x0'", MAX_DEPTH).is_err());
+    assert!(lua_value(br"'\xyz'", MAX_DEPTH).is_err());
+    assert!(lua_value(br"'\u{80000000}'", MAX_DEPTH).is_err());
+    assert!(lua_value(br"'\u{-80}'", MAX_DEPTH).is_err());
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn borrows() -> Result {
     // Empty strings
-    assert!(lua_value(b"[[]]")?.is_borrowed());
-    assert!(lua_value(b"[=[]=]")?.is_borrowed());
-    assert!(lua_value(b"''")?.is_borrowed());
-    assert!(lua_value(b"\"\"")?.is_borrowed());
+    assert!(lua_value(b"[[]]", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"[=[]=]", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"''", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"\"\"", MAX_DEPTH)?.is_borrowed());
 
     // No escape sequences
-    assert!(lua_value(b"[[hello]]")?.is_borrowed());
-    assert!(lua_value(b"[=[hello]=]")?.is_borrowed());
-    assert!(lua_value(b"'hello'")?.is_borrowed());
-    assert!(lua_value(b"\"hello\"")?.is_borrowed());
+    assert!(lua_value(b"[[hello]]", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"[=[hello]=]", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"'hello'", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"\"hello\"", MAX_DEPTH)?.is_borrowed());
 
     // Escapes are ignored for long bracket strings
-    assert!(lua_value(br"[[hello\nworld]]")?.is_borrowed());
-    assert!(lua_value(br"[=[hello\nworld]=]")?.is_borrowed());
+    assert!(lua_value(br"[[hello\nworld]]", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(br"[=[hello\nworld]=]", MAX_DEPTH)?.is_borrowed());
 
     // Newline character should also be included
-    assert!(lua_value(b"[[hello\nworld]]")?.is_borrowed());
-    assert!(lua_value(b"[=[hello\nworld]=]")?.is_borrowed());
+    assert!(lua_value(b"[[hello\nworld]]", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"[=[hello\nworld]=]", MAX_DEPTH)?.is_borrowed());
 
     // Strings containing _only_ an escape are borrowed
-    assert!(lua_value(br"'\n'")?.is_borrowed());
-    assert!(lua_value(b"\"\\n\"")?.is_borrowed());
+    assert!(lua_value(br"'\n'", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"\"\\n\"", MAX_DEPTH)?.is_borrowed());
 
     // Strings containing multiple escapes are owned
-    assert!(!lua_value(br"'\r\n'")?.is_borrowed());
-    assert!(!lua_value(b"\"\\r\\n\"")?.is_borrowed());
+    assert!(!lua_value(br"'\r\n'", MAX_DEPTH)?.is_borrowed());
+    assert!(!lua_value(b"\"\\r\\n\"", MAX_DEPTH)?.is_borrowed());
 
     // Strings containing escapes and non-escaped are owned
-    assert!(!lua_value(br"'hello\n'")?.is_borrowed());
-    assert!(!lua_value(b"\"hello\\n\"")?.is_borrowed());
+    assert!(!lua_value(br"'hello\n'", MAX_DEPTH)?.is_borrowed());
+    assert!(!lua_value(b"\"hello\\n\"", MAX_DEPTH)?.is_borrowed());
 
     Ok(())
 }

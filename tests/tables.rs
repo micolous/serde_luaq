@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::check;
+use crate::common::{check, should_error, MAX_DEPTH};
 use serde_luaq::{lua_value, script, LuaTableEntry, LuaValue};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -31,7 +31,7 @@ fn simple_table() -> Result {
         ),
     ]);
 
-    let actual = lua_value(data)?;
+    let actual = lua_value(data, MAX_DEPTH)?;
     assert_eq!(expected, actual);
 
     // Table containing newlines and whitespace
@@ -47,7 +47,7 @@ fn simple_table() -> Result {
         }
     }"#;
 
-    let actual = lua_value(data)?;
+    let actual = lua_value(data, MAX_DEPTH)?;
     assert_eq!(expected, actual);
 
     // Table as script, containing newlines and whitespace
@@ -77,7 +77,7 @@ fn simple_table() -> Result {
             ]),
         ),
     ];
-    let actual = script(data)?;
+    let actual = script(data, MAX_DEPTH)?;
     assert_eq!(expected, actual);
 
     Ok(())
@@ -112,4 +112,46 @@ fn tables() {
             LuaTableEntry::Value(LuaValue::integer(45)),
         ]),
     );
+}
+
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn recursion() {
+    let b = b"{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}";
+    assert_eq!(b.len(), (MAX_DEPTH - 1) * 2);
+
+    check(
+        b,
+        LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
+            LuaTableEntry::Value(LuaValue::Table(vec![LuaTableEntry::Value(
+                LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
+                    LuaTableEntry::Value(LuaValue::Table(vec![LuaTableEntry::Value(
+                        LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
+                            LuaTableEntry::Value(LuaValue::Table(vec![LuaTableEntry::Value(
+                                LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
+                                    LuaTableEntry::Value(LuaValue::Table(vec![
+                                        LuaTableEntry::Value(LuaValue::Table(vec![
+                                            LuaTableEntry::Value(LuaValue::Table(vec![
+                                                LuaTableEntry::Value(LuaValue::Table(vec![])),
+                                            ])),
+                                        ])),
+                                    ])),
+                                ]))]),
+                            )])),
+                        ]))]),
+                    )])),
+                ]))]),
+            )])),
+        ]))]),
+    );
+
+    let b = b"{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}";
+    assert_eq!(b.len(), MAX_DEPTH * 2);
+    should_error(b);
+
+    // Recursing heavily shouldn't crash.
+    let mut b = Vec::with_capacity(65536);
+    b.resize(32768, b'{');
+    b.resize(65536, b'}');
+    should_error(&b);
 }

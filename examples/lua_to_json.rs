@@ -9,6 +9,7 @@ use std::{fs::File, io::Read, path::PathBuf};
 ///
 /// 64 MiB is enough for anyone. 🙃
 const DEFAULT_SIZE_LIMIT: usize = 64 * 1024 * 1024;
+const DEFAULT_MAX_DEPTH: usize = 128;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -51,6 +52,10 @@ struct Args {
     /// Maximum Lua file size to process
     #[arg(long, default_value_t = DEFAULT_SIZE_LIMIT, id = "BYTES")]
     lua_size_limit: usize,
+    
+    /// Maximum object depth
+    #[arg(long, default_value_t = DEFAULT_MAX_DEPTH, id = "DEPTH")]
+    max_depth: usize,
 
     /// Use lossy string conversion, rather than erroring.
     #[arg(long)]
@@ -79,9 +84,9 @@ fn main() -> Result {
     f.read_to_end(&mut buf)?;
 
     let lua_value: LuaValue<'_> = match args.format {
-        LuaInputFormat::Script => script(&buf)?.into_iter().collect(),
-        LuaInputFormat::Object => lua_value(&buf)?,
-        LuaInputFormat::Return => return_statement(&buf)?,
+        LuaInputFormat::Script => script(&buf, args.max_depth)?.into_iter().collect(),
+        LuaInputFormat::Object => lua_value(&buf, args.max_depth)?,
+        LuaInputFormat::Return => return_statement(&buf, args.max_depth)?,
     };
 
     let json_value = to_json_value(lua_value, &opts)?;
