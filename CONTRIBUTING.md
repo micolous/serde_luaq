@@ -79,10 +79,14 @@ Examples of welcomed contributions:
 - Fixing documentation issues
 - Updating outdated dependencies
 
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
+this project by you, as defined in the Apache-2.0 license, shall be dual licensed under the terms of
+the Apache-2.0 and MIT licenses, without any additional terms or conditions. 
+
 [discussions]: https://github.com/micolous/serde_luaq/discussions
 [mlua]: https://github.com/mlua-rs/mlua
 [peg-parser]: https://en.wikipedia.org/wiki/Parsing_expression_grammar
 [serde-help]: https://serde.rs/help.html
 [rust-tier]: https://doc.rust-lang.org/nightly/rustc/platform-support.html
+[rust-wasm]: https://doc.rust-lang.org/nightly/rustc/platform-support/wasm32-unknown-unknown.html
 [security]: https://github.com/micolous/serde_luaq/security
-[wasm]: https://doc.rust-lang.org/nightly/rustc/platform-support/wasm32-unknown-unknown.html
