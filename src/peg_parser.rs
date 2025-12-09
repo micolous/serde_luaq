@@ -488,6 +488,8 @@ peg::parser! {
         rule table(max_depth: usize) -> Vec<LuaTableEntry<'input>>
             =
                 ("{" {?
+                    // rust-peg doesn't have a stack limit; workaround based on
+                    // https://github.com/kevinmehall/rust-peg/issues/282#issuecomment-2169784035
                     if max_depth == 0 {
                         Err("too deeply nested")
                     } else {
