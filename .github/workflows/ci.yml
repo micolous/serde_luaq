@@ -28,12 +28,18 @@ jobs:
       - run: cargo fmt --check
 
   test:
-    name: Rust ${{matrix.rust_version}} ${{matrix.os == 'windows' && '(windows)' || ''}}
-    runs-on: ${{matrix.os}}-latest
+    name: Rust ${{matrix.rust_version}} (${{matrix.os}})
+    runs-on: ${{matrix.os}}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu, windows]
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - windows-latest
+          - windows-11-arm
+          - macos-latest
+          - macos-15-intel
         rust_version: [stable, 1.85.0]
     steps:
       - uses: actions/checkout@v5
