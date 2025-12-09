@@ -59,7 +59,11 @@ Then deserialise it with:
 ```rust
 use serde_luaq::{from_slice, LuaFormat};
 
-let parsed: Test = serde_luaq::from_slice(input, LuaFormat::Script).unwrap();
+let parsed: Test = serde_luaq::from_slice(
+  input,
+  LuaFormat::Script,
+  /* maximum table depth */ 16,
+).unwrap();
 
 assert_eq!(parsed, Test {
   a: true,
@@ -119,6 +123,7 @@ that a JSON parser would implement:
     - [x] Identifier validation (Lua 5.4-style)
   - [x] Values / implicit keys (`{"bar"}`)
   - [x] Mixed key types
+  - [x] Recursion depth limits
 
 This library is not designed to replace Lua, nor execute arbitrary Lua code, so these Lua features
 are _intentionally unsupported_:
