@@ -4,10 +4,16 @@ use serde::Deserialize;
 use serde_luaq::{from_slice, LuaFormat};
 use std::collections::BTreeMap;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+wasm_bindgen_test_configure!(run_in_browser);
+
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 /// Deserialise a simple `struct`
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn struct_simple() {
     #[derive(Deserialize, PartialEq, Debug)]
     struct Test {
@@ -47,6 +53,7 @@ fn struct_simple() {
 
 /// Deserialise a struct with a [`BTreeMap`] field
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn btreemap_field() {
     #[derive(Deserialize, PartialEq, Debug)]
     struct Test {
@@ -65,6 +72,7 @@ fn btreemap_field() {
 
 /// Deseralise a [`BTreeMap`] directly
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn btreemap_bare() {
     let lua_return = br#"return {[1]="hello",[2]="goodbye"}"#;
     let lua_value = br#"{[1]="hello",[2]="goodbye"}"#;
@@ -81,6 +89,7 @@ fn btreemap_bare() {
 
 /// Deserialise a [`BTreeMap`] with an `enum` key
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn btreemap_enum_keys() {
     #[derive(Deserialize, PartialEq, Debug, PartialOrd, Eq, Ord)]
     enum Enum {
@@ -105,6 +114,7 @@ fn btreemap_enum_keys() {
 
 /// Deseraliase an `enum` with multiple variants.
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn enum_variants() {
     #[derive(Deserialize, PartialEq, Debug)]
     enum E {
@@ -147,6 +157,7 @@ fn enum_variants() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn integers() {
     #[derive(Deserialize, PartialEq, Debug)]
     struct Integers {
@@ -225,6 +236,7 @@ fn integers() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn booleans() -> Result {
     #[derive(Deserialize, PartialEq, Debug)]
     struct Booleans {
@@ -306,6 +318,7 @@ fn booleans() -> Result {
 
 /// Tests for Serde's field naming
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn field_naming() -> Result {
     #[derive(Deserialize, PartialEq, Debug)]
     struct FieldNaming {
@@ -422,6 +435,7 @@ fn strings() -> Result {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn arrays() -> Result {
     let expected = ("hello", "world");
     assert_eq!(

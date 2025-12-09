@@ -4,9 +4,15 @@ mod common;
 use crate::common::check;
 use serde_luaq::{lua_value, LuaTableEntry, LuaValue};
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+wasm_bindgen_test_configure!(run_in_browser);
+
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn basics() {
     // Empty string
     check(b"\"\"", LuaValue::String(b"".into()));
@@ -17,6 +23,7 @@ fn basics() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn long_string() {
     check(b"[[]]", LuaValue::String(b"".into()));
     check(b"[=[]=]", LuaValue::String(b"".into()));
@@ -122,6 +129,7 @@ fn long_string() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn newlines() {
     // Short strings need to escape newlines
     assert!(lua_value(b"'\nfoo'").is_err());
@@ -224,6 +232,7 @@ fn newlines() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn escapes() {
     // https://github.com/lua/tests/blob/26eebb47b6442996d89e298b99404cbf53468c4c/strings.lua#L152
     check(
@@ -265,6 +274,7 @@ fn escapes() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn unicode_escapes() {
     check(br"'\u{80}'", LuaValue::String(b"\xC2\x80".into()));
     check(
@@ -328,6 +338,7 @@ fn unicode_escapes() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn invalid_escapes() {
     assert!(lua_value(br"'\256'").is_err());
     assert!(lua_value(br"'\c'").is_err());
@@ -339,6 +350,7 @@ fn invalid_escapes() {
 }
 
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn borrows() -> Result {
     // Empty strings
     assert!(lua_value(b"[[]]")?.is_borrowed());

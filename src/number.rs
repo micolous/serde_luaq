@@ -182,7 +182,13 @@ impl Display for LuaNumber {
 mod test {
     use super::*;
 
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+    wasm_bindgen_test_configure!(run_in_browser);
+
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn from_integer() {
         // i64
         assert_eq!(LuaNumber::Integer(0), LuaNumber::from(0));
@@ -240,6 +246,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn to_integer() {
         assert_eq!(0_i64, LuaNumber::Integer(0).as_i64().unwrap());
         assert_eq!(i64::MIN, LuaNumber::Integer(i64::MIN).as_i64().unwrap());
@@ -253,6 +260,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn from_float() {
         // f64
         assert_eq!(LuaNumber::Float(0.), LuaNumber::from(0.));
@@ -289,6 +297,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn to_float() {
         assert_eq!(0_f64, LuaNumber::Float(0.).as_f64().unwrap());
         assert_eq!(-0_f64, LuaNumber::Float(-0.).as_f64().unwrap());

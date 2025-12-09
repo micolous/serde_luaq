@@ -2,10 +2,18 @@
 mod common;
 
 use crate::common::check;
-use serde_luaq::{lua_value, LuaValue};
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+use serde_luaq::lua_value;
+use serde_luaq::LuaValue;
+
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+wasm_bindgen_test_configure!(run_in_browser);
 
 /// Decimal integer values
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn decimal_integers() {
     // https://www.lua.org/manual/5.4/manual.html#3.1
     check(b"0", LuaValue::integer(0));
@@ -42,6 +50,7 @@ fn decimal_integers() {
 
 /// Hex integer values
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn hex_integers() {
     check(b"0xff", LuaValue::integer(0xff));
     check(b"0Xff", LuaValue::integer(0xff));
@@ -103,6 +112,7 @@ fn hex_integers() {
 
 /// Decimal floats
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn decimal_floats() {
     check(b"0.0", LuaValue::float(0.0));
     check(b"-0.0", LuaValue::float(-0.0));
@@ -121,6 +131,7 @@ fn decimal_floats() {
     check(b"-34e1", LuaValue::float(-34e1));
 }
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 /// Hex floats
 #[test]
 fn hex_floats() {
@@ -151,6 +162,7 @@ fn hex_floats() {
 
 /// Special floats
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn special_floats() {
     check(b"(0/0)", LuaValue::float(f64::NAN));
     check(b"1e9999", LuaValue::float(f64::INFINITY));

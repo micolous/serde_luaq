@@ -1,5 +1,7 @@
 //! Peg-based Lua parser.
-use crate::{strtod, wrapping_parse_int, LuaNumber, LuaTableEntry, LuaValue, LUA_KEYWORDS};
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+use crate::strtod;
+use crate::{wrapping_parse_int, LuaNumber, LuaTableEntry, LuaValue, LUA_KEYWORDS};
 use std::{borrow::Cow, str::from_utf8};
 
 const BELL: Cow<'static, [u8]> = Cow::Borrowed(b"\x07");
@@ -176,13 +178,21 @@ peg::parser! {
                         // f64::from_str can't parse hex.
                         // Shell out to C's strtod, because that's easier.
 
-                        // from_utf8 shouldn't error
-                        let n = from_utf8(n).unwrap();
+                        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+                        {
+                            // from_utf8 shouldn't error
+                            let n = from_utf8(n).unwrap();
 
-                        let Some(f) = strtod(n) else {
-                            return Err("floating point parse error");
-                        };
-                        Ok(LuaNumber::Float(f))
+                            let Some(f) = strtod(n) else {
+                                return Err("floating point parse error");
+                            };
+                            Ok(LuaNumber::Float(f))
+                        }
+
+                        #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+                        {
+                            return Err("parsing hex floating points is not supported on this platform")
+                        }
                     }
                 ) /
 

@@ -53,3 +53,31 @@ jobs:
 
       - run: cargo test
       - run: cargo test --no-default-features
+
+  wasm:
+    name: Rust ${{matrix.rust_version}} (WASM)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_version: [stable, 1.85.0]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust_version }}
+          targets: wasm32-unknown-unknown
+          components: clippy
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - run: cargo check --target wasm32-unknown-unknown
+      - run: cargo check --no-default-features --target wasm32-unknown-unknown
+
+      - run: cargo clippy --no-deps --workspace --target wasm32-unknown-unknown
+      - run: cargo clippy --no-deps --workspace --no-default-features --target wasm32-unknown-unknown
+
+      - run: cargo build --target wasm32-unknown-unknown
+      - run: wasm-pack test --headless --chrome
+      - run: wasm-pack test --headless --firefox

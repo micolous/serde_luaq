@@ -4,6 +4,8 @@ Thank you for your interest in contributing to this project!
 
 ## Scope
 
+### Lua
+
 This library targets compatibility with Lua 5.4 (the current stable version, at the time of writing)
 and data structures that have JSON equivalents (eg: `table` is like `Array` or `Object`).
 
@@ -12,17 +14,25 @@ that they don't break compatibility with Lua 5.4. Aside from identifier restrict
 subtype and float coercion changes (in Lua 5.2, 5.3 and 5.4 respectively), I don't expect this to be
 a big issue.
 
-Executing arbitrary code is explicitly out of scope. _Try [`mlua`][mlua] instead!_
+Executing arbitrary code and Luau language features are explicitly out of scope.
+_Try [`mlua`][mlua] instead!_
 
-On the Rust side, this project targets the current stable version of Rust on
-[64-bit platforms with Tier 1 with Host Tools][rust-tier]. Support for stable versions up to 1 year
-old is on a "best effort" basis, and support for other platforms is on a "if you do the work, it's
-simple and testable in CI" basis.
+### Rust
+
+This project targets the current stable version of Rust on
+[64-bit platforms with Tier 1 with Host Tools][rust-tier] and [WASM][rust-wasm].
+
+Support for stable versions up to 1 year old is on a "best effort" basis, and support for other
+platforms is on a "if you do the work, it's simple and testable in CI" basis.
+
+### Parser
 
 This library is built around [a PEG parser][peg-parser] to simplify things, so needs to be able to
-keep your entire Lua script in memory. It will avoid copying data where possible, but there are
-cases where this is unavoidable. Generally speaking, this should result in memory usage that is
-_not significantly worse_ than evaluating the source code with Lua.
+keep your entire Lua script in memory. It will avoid making copies of that script where possible,
+but there are cases where this is unavoidable.
+
+Ideally this should result in memory usage that is _not significantly worse_ than evaluating the
+source code with Lua... but this is not currently measured.
 
 ## Submitting issues
 
@@ -75,3 +85,4 @@ Examples of welcomed contributions:
 [serde-help]: https://serde.rs/help.html
 [rust-tier]: https://doc.rust-lang.org/nightly/rustc/platform-support.html
 [security]: https://github.com/micolous/serde_luaq/security
+[wasm]: https://doc.rust-lang.org/nightly/rustc/platform-support/wasm32-unknown-unknown.html

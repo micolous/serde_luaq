@@ -100,6 +100,7 @@ mod serde_json;
 mod table_entry;
 mod value;
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 use std::ffi::CString;
 
 pub use crate::{
@@ -174,6 +175,7 @@ fn valid_lua_identifier(i: &[u8]) -> bool {
     i.all(|&c| c.is_ascii_alphanumeric() || c == b'_')
 }
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 /// Converts a string to a `f64` using C's standard library.
 ///
 /// This supports parsing hexadecimal floating points.
