@@ -28,7 +28,7 @@
 //!
 //! ```rust
 //! use serde_luaq::{LuaValue, lua_value};
-//! assert_eq!(LuaValue::Boolean(true), lua_value(b"true").unwrap());
+//! assert_eq!(LuaValue::Boolean(true), lua_value(b"true", /* max table depth */ 16).unwrap());
 //! ```
 //!
 //! There are similar deserialisers for [a single `return` statement][return_statement] and
@@ -62,6 +62,7 @@
 //!     from_slice(
 //!         b"{a=true, [[[b]]]={[3] = 3, 0x1, 2}, ['c'] = { foo = \"bar\" }}",
 //!         LuaFormat::Value,
+//!         /* maximum table depth */ 16,
 //!     ).unwrap(),
 //! );
 //! ```
