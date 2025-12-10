@@ -316,6 +316,136 @@ fn integers() {
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn floats() -> Result {
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Floats {
+        f32: f32,
+        f64: f64,
+    }
+
+    let expected = Floats {
+        f32: f32::MAX,
+        f64: f64::MAX,
+    };
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = 3.4028235e38, f64 = 1.7976931348623157e308}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = 340282349999999991754788743781432688640, f64 = 179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
+    let expected = Floats {
+        f32: f32::MIN,
+        f64: f64::MIN,
+    };
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = -3.4028235e38, f64 = -1.7976931348623157e308}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = -340282349999999991754788743781432688640, f64 = -179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
+    let expected = Floats {
+        f32: f32::INFINITY,
+        f64: f64::INFINITY,
+    };
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = 3.5e38, f64 = 1.8e308}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = 350000000000000000000000000000000000000, f64 = 179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137216}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
+    let expected = Floats {
+        f32: f32::NEG_INFINITY,
+        f64: f64::NEG_INFINITY,
+    };
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = -3.5e38, f64 = -1.8e308}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = -350000000000000000000000000000000000000, f64 = -179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137216}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
+    // Large hexadecimal integers overflow as i64 before converted to float.
+    let expected = Floats {
+        f32: 0xffffffffffffffff_u64 as i64 as f32,
+        f64: 0xffffffffffffffff_u64 as i64 as f64,
+    };
+    assert_eq!(expected, Floats { f32: -1., f64: -1. });
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = 0xffffffffffffffff, f64 = 0xffffffffffffffff}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
+    // Same with underflows
+    let expected = Floats {
+        f32: -0xffffffffffffffff_i128 as i64 as f32,
+        f64: -0xffffffffffffffff_i128 as i64 as f64,
+    };
+    assert_eq!(expected, Floats { f32: 1., f64: 1. });
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = -0xffffffffffffffff, f64 = -0xffffffffffffffff}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
+    let a: Floats = from_slice(b"{f32=(0/0), f64=(0/0)}", LuaFormat::Value, MAX_DEPTH)?;
+    assert!(a.f32.is_nan());
+    assert!(a.f64.is_nan());
+
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn booleans() -> Result {
     #[derive(Deserialize, PartialEq, Debug)]
     struct Booleans {
