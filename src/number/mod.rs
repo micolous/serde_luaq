@@ -85,7 +85,7 @@ impl LuaNumber {
     /// Attempt to convert a [`LuaNumber`] into an `f64`.
     ///
     /// This will convert integer values to floating point if they can be represented without a loss
-    /// of precision `[-(2**53)+1, (2**53)-1]`.
+    /// of precision `[-(2**53)-1, (2**53)-1]`.
     ///
     /// ## Example
     ///

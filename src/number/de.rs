@@ -1,5 +1,3 @@
-//! Deserialise to a [LuaNumber] field.
-
 use crate::{Error, LuaNumber};
 use serde::{de::Visitor, forward_to_deserialize_any, Deserializer};
 
@@ -12,6 +10,7 @@ macro_rules! number_visitor {
     };
 }
 
+/// Deserialise to a [`LuaNumber`] field.
 impl<'de> serde::Deserialize<'de> for LuaNumber {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -56,6 +55,7 @@ macro_rules! deserialize_number {
     };
 }
 
+/// Deserialise from a [`LuaNumber`].
 impl<'de> serde::Deserializer<'de> for LuaNumber {
     type Error = Error;
 
