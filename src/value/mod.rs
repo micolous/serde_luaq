@@ -5,9 +5,29 @@ use std::{
     str::{from_utf8, Utf8Error},
 };
 
-/// Basic Lua 5.4 data types that are equivalent to those available in JSON.
+/// Basic Lua 5.4 data types that are equivalent to those available in JSON, similar to
+/// `serde_json::Value`.
+///
+/// This structure avoids owning data where possible.
 ///
 /// Reference: <https://www.lua.org/manual/5.4/manual.html#2.1>
+///
+/// ## Serde
+///
+/// **Unlike** `serde_json::Value`, [`LuaValue`][] does not implement
+/// [`Deserialize`][serde::Deserialize]. This is due to two problems:
+///
+/// * [`LuaValue`][] tries to avoid owning data, so any fields would need a lifetime of `'de`. This
+///   doesn't work with the `derive` macros.
+///
+/// * Lua tables' [multiple key types][LuaTableEntry] are a hybrid of Serde's map and sequence
+///   types, which are converted to one or the other depending on the destination field type. Serde
+///   also does not allow us to make a distinction between [a regular key][LuaTableEntry::KeyValue]
+///   and [an identifier key][LuaTableEntry::NameValue], so the table might change.
+///
+/// As a result, you can't use [`LuaValue`][] as a field type or deserialise to it.
+///
+/// If you want to deserialise Lua to a [`LuaValue`][], use one of the `peg` parsers.
 #[derive(Clone, PartialEq)]
 pub enum LuaValue<'a> {
     /// Nil value.
@@ -27,14 +47,6 @@ pub enum LuaValue<'a> {
     ///
     /// [The parser][crate::lua_value] returns a borrowed byte slice for strings that do not contain
     /// escape sequences.
-    ///
-    /// ## Serde string fields
-    ///
-    /// Whes deserialising with `serde`, you can define Lua string fields as either a
-    /// [`String`][] or `Vec<u8>` (using `#[serde(with = "serde_bytes")]`).
-    ///
-    /// However, if the field is contains invalid RFC 3629 UTF-8 data, it will only deseralise as a
-    /// `Vec<u8>`.
     ///
     /// ## Reference
     ///

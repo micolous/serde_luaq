@@ -171,16 +171,15 @@ fn decimal_floats() {
 /// Hex floats
 #[test]
 fn hex_floats() {
-    use crate::common::MAX_DEPTH;
-    use serde_luaq::lua_value;
+    use crate::common::should_error;
 
     // lua-tests/math.lua, hex
     check(b"0E+1", LuaValue::float(0.));
 
     // We shouldn't be able to evaluate an expression, which could be confused
     // with a decimal exponent.
-    assert!(lua_value(b"0xE+1", MAX_DEPTH).is_err());
-    assert!(lua_value(b"0xE-1", MAX_DEPTH).is_err());
+    should_error(b"0xE+1");
+    should_error(b"0xE-1");
 
     check(b"0x1.fp10", LuaValue::float(1984.));
 
