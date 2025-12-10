@@ -1,10 +1,10 @@
 use std::{fmt::Display, ops::Neg};
 
 /// Maximum integer value that can be represented in an [`f64`] without loss of precision.
-const MAX_F64_INTEGER: i64 = (1_i64 << f64::MANTISSA_DIGITS) - 1;
+pub const MAX_F64_INTEGER: i64 = (1_i64 << f64::MANTISSA_DIGITS) - 1;
 
 /// Minimum integer value that can be represented in an [`f64`] without loss of precision.
-const MIN_F64_INTEGER: i64 = -((1_i64 << f64::MANTISSA_DIGITS) + 1);
+pub const MIN_F64_INTEGER: i64 = -((1_i64 << f64::MANTISSA_DIGITS) - 1);
 
 /// Lua number types.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -327,18 +327,28 @@ mod test {
 
         // Bounds of safe conversion
         assert_eq!(
+            9007199254740990.0,
+            LuaNumber::Integer(2_i64.pow(53) - 2).as_f64().unwrap(),
+        );
+
+        assert_eq!(
             9007199254740991.0,
             LuaNumber::Integer(2_i64.pow(53) - 1).as_f64().unwrap(),
         );
 
         assert_eq!(
-            -9007199254740993.0,
-            LuaNumber::Integer(-(2_i64.pow(53) + 1)).as_f64().unwrap(),
+            -9007199254740990.0,
+            LuaNumber::Integer(-(2_i64.pow(53) - 2)).as_f64().unwrap(),
+        );
+
+        assert_eq!(
+            -9007199254740991.0,
+            LuaNumber::Integer(-(2_i64.pow(53) - 1)).as_f64().unwrap(),
         );
 
         // Out of bounds
         assert_eq!(None, LuaNumber::Integer(2_i64.pow(53)).as_f64());
-        assert_eq!(None, LuaNumber::Integer(-(2_i64.pow(53) + 2)).as_f64());
+        assert_eq!(None, LuaNumber::Integer(-(2_i64.pow(53))).as_f64());
         assert_eq!(None, LuaNumber::Integer(i64::MAX).as_f64());
     }
 }
