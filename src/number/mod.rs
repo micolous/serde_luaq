@@ -1,3 +1,5 @@
+mod de;
+
 use std::{fmt::Display, ops::Neg};
 
 /// Maximum integer value that can be represented in an [`f64`] without loss of precision.

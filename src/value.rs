@@ -28,14 +28,6 @@ pub enum LuaValue<'a> {
     /// [The parser][crate::lua_value] returns a borrowed byte slice for strings that do not contain
     /// escape sequences.
     ///
-    /// ## Serde string fields
-    ///
-    /// Whes deserialising with `serde`, you can define Lua string fields as either a
-    /// [`String`][] or `Vec<u8>` (using `#[serde(with = "serde_bytes")]`).
-    ///
-    /// However, if the field is contains invalid RFC 3629 UTF-8 data, it will only deseralise as a
-    /// `Vec<u8>`.
-    ///
     /// ## Reference
     ///
     /// [Lua 5.4 Reference Manual, Section 2.1](https://www.lua.org/manual/5.4/manual.html#2.1):

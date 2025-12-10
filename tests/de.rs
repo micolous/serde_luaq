@@ -2,7 +2,7 @@
 mod common;
 use crate::common::MAX_DEPTH;
 use serde::Deserialize;
-use serde_luaq::{from_slice, LuaFormat};
+use serde_luaq::{from_slice, LuaFormat, LuaNumber};
 use std::collections::BTreeMap;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -237,7 +237,7 @@ fn enum_variants() {
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
-fn integers() {
+fn integers() -> Result {
     #[derive(Deserialize, PartialEq, Debug)]
     struct Integers {
         i8: i8,
@@ -254,6 +254,24 @@ fn integers() {
     struct IntegerData {
         min: Integers,
         max: Integers,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct IntegersNumber {
+        i8: LuaNumber,
+        i16: LuaNumber,
+        i32: LuaNumber,
+        i64: LuaNumber,
+        u8: LuaNumber,
+        u16: LuaNumber,
+        u32: LuaNumber,
+        u64: LuaNumber,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct IntegerDataNumber {
+        min: IntegersNumber,
+        max: IntegersNumber,
     }
 
     let expected = IntegerData {
@@ -280,38 +298,91 @@ fn integers() {
         },
     };
 
+    let expected_number = IntegerDataNumber {
+        min: IntegersNumber {
+            i8: i8::MIN.into(),
+            i16: i16::MIN.into(),
+            i32: i32::MIN.into(),
+            i64: i64::MIN.into(),
+            u8: 0.into(),
+            u16: 0.into(),
+            u32: 0.into(),
+            u64: 0.into(),
+        },
+        max: IntegersNumber {
+            i8: i8::MAX.into(),
+            i16: i16::MAX.into(),
+            i32: i32::MAX.into(),
+            i64: i64::MAX.into(),
+            u8: u8::MAX.into(),
+            u16: u16::MAX.into(),
+            u32: u32::MAX.into(),
+            // Lua's integer is a wrapping i64
+            u64: i64::MAX.into(),
+        },
+    };
+
     const RETURN_INTEGERS_DEC: &'static [u8] = include_bytes!("data/return/integers_dec.lua");
     assert_eq!(
         expected,
-        from_slice(RETURN_INTEGERS_DEC, LuaFormat::Return, MAX_DEPTH).unwrap()
+        from_slice(RETURN_INTEGERS_DEC, LuaFormat::Return, MAX_DEPTH)?
     );
+    assert_eq!(
+        expected_number,
+        from_slice(RETURN_INTEGERS_DEC, LuaFormat::Return, MAX_DEPTH)?
+    );
+
     const RETURN_INTEGERS_HEX: &'static [u8] = include_bytes!("data/return/integers_hex.lua");
     assert_eq!(
         expected,
-        from_slice(RETURN_INTEGERS_HEX, LuaFormat::Return, MAX_DEPTH).unwrap()
+        from_slice(RETURN_INTEGERS_HEX, LuaFormat::Return, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected_number,
+        from_slice(RETURN_INTEGERS_HEX, LuaFormat::Return, MAX_DEPTH)?
     );
 
     const SCRIPT_INTEGERS_DEC: &'static [u8] = include_bytes!("data/script/integers_dec.lua");
     assert_eq!(
         expected,
-        from_slice(SCRIPT_INTEGERS_DEC, LuaFormat::Script, MAX_DEPTH).unwrap()
+        from_slice(SCRIPT_INTEGERS_DEC, LuaFormat::Script, MAX_DEPTH)?
     );
+    assert_eq!(
+        expected_number,
+        from_slice(SCRIPT_INTEGERS_DEC, LuaFormat::Script, MAX_DEPTH)?
+    );
+
     const SCRIPT_INTEGERS_HEX: &'static [u8] = include_bytes!("data/script/integers_hex.lua");
     assert_eq!(
         expected,
-        from_slice(SCRIPT_INTEGERS_HEX, LuaFormat::Script, MAX_DEPTH).unwrap()
+        from_slice(SCRIPT_INTEGERS_HEX, LuaFormat::Script, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected_number,
+        from_slice(SCRIPT_INTEGERS_HEX, LuaFormat::Script, MAX_DEPTH)?
     );
 
     const VALUE_INTEGERS_DEC: &'static [u8] = include_bytes!("data/value/integers_dec.lua");
     assert_eq!(
         expected,
-        from_slice(VALUE_INTEGERS_DEC, LuaFormat::Value, MAX_DEPTH).unwrap()
+        from_slice(VALUE_INTEGERS_DEC, LuaFormat::Value, MAX_DEPTH)?
     );
+    assert_eq!(
+        expected_number,
+        from_slice(VALUE_INTEGERS_DEC, LuaFormat::Value, MAX_DEPTH)?
+    );
+
     const VALUE_INTEGERS_HEX: &'static [u8] = include_bytes!("data/value/integers_hex.lua");
     assert_eq!(
         expected,
-        from_slice(VALUE_INTEGERS_HEX, LuaFormat::Value, MAX_DEPTH).unwrap()
+        from_slice(VALUE_INTEGERS_HEX, LuaFormat::Value, MAX_DEPTH)?
     );
+    assert_eq!(
+        expected_number,
+        from_slice(VALUE_INTEGERS_HEX, LuaFormat::Value, MAX_DEPTH)?
+    );
+
+    Ok(())
 }
 
 #[test]
@@ -854,6 +925,16 @@ fn arrays() -> Result {
     assert_eq!(
         expected,
         from_slice::<Vec<_>>(b"{nil, nil, nil}", LuaFormat::Value, MAX_DEPTH)?
+    );
+
+    let expected: Vec<Option<LuaNumber>> = vec![
+        Some(LuaNumber::Integer(1)),
+        None,
+        Some(LuaNumber::Float(2.0)),
+    ];
+    assert_eq!(
+        expected,
+        from_slice::<Vec<_>>(b"{[3] = 2.0, 1}", LuaFormat::Value, MAX_DEPTH)?
     );
 
     Ok(())
