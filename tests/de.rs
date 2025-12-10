@@ -407,6 +407,36 @@ fn floats() -> Result {
         )?,
     );
 
+    // Large hexadecimal integers overflow as i64 before converted to float.
+    let expected = Floats {
+        f32: 0xffffffffffffffff_u64 as i64 as f32,
+        f64: 0xffffffffffffffff_u64 as i64 as f64,
+    };
+    assert_eq!(expected, Floats { f32: -1., f64: -1. });
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = 0xffffffffffffffff, f64 = 0xffffffffffffffff}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
+    // Same with underflows
+    let expected = Floats {
+        f32: -0xffffffffffffffff_i128 as i64 as f32,
+        f64: -0xffffffffffffffff_i128 as i64 as f64,
+    };
+    assert_eq!(expected, Floats { f32: 1., f64: 1. });
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{f32 = -0xffffffffffffffff, f64 = -0xffffffffffffffff}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?,
+    );
+
     let a: Floats = from_slice(b"{f32=(0/0), f64=(0/0)}", LuaFormat::Value, MAX_DEPTH)?;
     assert!(a.f32.is_nan());
     assert!(a.f64.is_nan());
