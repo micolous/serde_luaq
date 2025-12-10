@@ -1,5 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+    "fuzz-target",
     "serde_luaq",
 ]
+
+[workspace.dependencies]
+serde_luaq = { path = "./serde_luaq" }
