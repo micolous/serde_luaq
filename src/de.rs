@@ -60,11 +60,14 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
         V: Visitor<'de>,
     {
         match self {
-            LuaValue::Nil => visitor.visit_unit(),
+            LuaValue::Nil => visitor.visit_none(),
             LuaValue::Boolean(v) => visitor.visit_bool(v),
             LuaValue::Number(v) => v.deserialize_any(visitor),
-            LuaValue::String(v) => visitor.visit_bytes(&v),
-            LuaValue::Table(v) => LuaTableWrapper(v.into_iter()).deserialize_any(visitor),
+            LuaValue::String(v) => match v {
+                Cow::Borrowed(b) => visitor.visit_borrowed_bytes(b),
+                Cow::Owned(b) => visitor.visit_byte_buf(b),
+            },
+            LuaValue::Table(v) => LuaTableWrapper(v.into_iter()).deserialize_seq(visitor),
         }
     }
 
@@ -842,10 +845,12 @@ pub enum LuaFormat {
 /// | `nil`     | [`LuaValue::Nil`][]     | [`Option::None`][]                 |
 /// | `boolean` | [`LuaValue::Boolean`][] | [`bool`][]                         |
 /// | `string`  | [`LuaValue::String`][]  | `[u8]`, `Vec<u8>`, [`String`] ([see note](#strings)) |
-/// | `number`  | [`LuaValue::Number`][]  |                                    |
-/// | ...`float` subtype   | [`LuaNumber::Float`]   | [`f64`][]                |
-/// | ...`integer` subtype | [`LuaNumber::Integer`] | [`i64`][]                |
-/// | `table`   | [`LuaValue::Table`]     | [`BTreeMap`][], [`HashMap`][std::collections::HashMap], [`Vec<T>`] |
+/// | `number`  | [`LuaValue::Number`][]  | [`LuaNumber`][]                    |
+/// | ...`float` subtype   | [`LuaNumber::Float`][]   | [`f64`][]                |
+/// | ...`integer` subtype | [`LuaNumber::Integer`][] | [`i64`][]                |
+/// | `table`   | [`LuaValue::Table`][]   | [`BTreeMap`][], [`HashMap`][std::collections::HashMap], [`Vec<T>`] |
+///
+/// **Note:** [`LuaValue`][] does not implement [`Deserialize`], so cannot be used as a Serde field.
 ///
 /// ## Numbers
 ///
