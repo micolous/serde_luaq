@@ -127,6 +127,24 @@ fn decimal_floats() {
     check(b"-0.31416E1", LuaValue::float(-0.31416E1));
     check(b"34e1", LuaValue::float(34e1));
     check(b"-34e1", LuaValue::float(-34e1));
+
+    // Maximum and minimum safe integer in f64
+    check(b"9007199254740991.", LuaValue::float(9007199254740991.));
+    check(b"-9007199254740991.", LuaValue::float(-9007199254740991.));
+
+    // Expect loss of precision beyond those
+    check(b"9007199254740992.", LuaValue::float(9007199254740992.));
+    check(b"9007199254740993.", LuaValue::float(9007199254740992.));
+    check(b"-9007199254740992.", LuaValue::float(-9007199254740992.));
+    check(b"-9007199254740993.", LuaValue::float(-9007199254740992.));
+
+    // f64 bounds
+    check(b"1.7976931348623157e+308", LuaValue::float(f64::MAX));
+    check(b"-1.7976931348623157e+308", LuaValue::float(f64::MIN));
+
+    // Overflow f64
+    check(b"1.8e+308", LuaValue::float(f64::INFINITY));
+    check(b"-1.8e+308", LuaValue::float(f64::NEG_INFINITY));
 }
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
