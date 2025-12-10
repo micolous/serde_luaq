@@ -3,7 +3,11 @@ use serde_json::{to_writer, to_writer_pretty};
 use serde_luaq::{
     lua_value, return_statement, script, to_json_value, JsonConversionOptions, LuaValue,
 };
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{
+    fs::File,
+    io::{stdout, BufWriter, Read, Write},
+    path::PathBuf,
+};
 
 /// Default maximum Lua file size limit.
 ///
@@ -29,31 +33,31 @@ enum LuaInputFormat {
 #[derive(Parser, Debug)]
 #[command(name = "lua_to_json", version, about, long_about = None, verbatim_doc_comment, rename_all = "snake_case")]
 struct Args {
-    /// Input Lua filename, will be loaded entirely into memory
+    /// Input Lua filename, will be loaded entirely into memory.
     #[arg()]
     input: PathBuf,
 
-    /// Input Lua file format
+    /// Input Lua file format.
     #[arg(short, long)]
     format: LuaInputFormat,
 
-    /// Output JSON filename
+    /// Output JSON filename; if omitted, writes to stdout.
     #[arg(short, long)]
-    output: PathBuf,
+    output: Option<PathBuf>,
 
-    /// Pretty-print JSON output
+    /// Pretty-print JSON output.
     #[arg(short, long)]
     pretty: bool,
 
-    /// Don't check that we consumed the entire buffer
+    /// Don't check that we consumed the entire buffer.
     #[arg(short = 'E', long)]
     no_empty_check: bool,
 
-    /// Maximum Lua file size to process
+    /// Maximum Lua file size to process.
     #[arg(long, default_value_t = DEFAULT_SIZE_LIMIT, id = "BYTES")]
     lua_size_limit: usize,
 
-    /// Maximum object depth
+    /// Maximum table depth. Increasing this risks the library crashing with a stack overflow.
     #[arg(long, default_value_t = DEFAULT_MAX_DEPTH, id = "DEPTH")]
     max_depth: usize,
 
@@ -91,15 +95,18 @@ fn main() -> Result {
 
     let json_value = to_json_value(lua_value, &opts)?;
 
-    let f = File::options()
-        .create_new(true)
-        .write(true)
-        .open(args.output)?;
+    let f: Box<dyn Write> = if let Some(output) = args.output {
+        Box::new(File::options().create_new(true).write(true).open(output)?)
+    } else {
+        Box::new(stdout())
+    };
+    let f = BufWriter::new(f);
 
     if args.pretty {
         to_writer_pretty(f, &json_value)?;
     } else {
         to_writer(f, &json_value)?;
     }
+
     Ok(())
 }
