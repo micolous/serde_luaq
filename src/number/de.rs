@@ -20,7 +20,7 @@ impl<'de> serde::Deserialize<'de> for LuaNumber {
     {
         struct LuaNumberVisitor;
 
-        impl<'de> Visitor<'de> for LuaNumberVisitor {
+        impl Visitor<'_> for LuaNumberVisitor {
             type Value = LuaNumber;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
