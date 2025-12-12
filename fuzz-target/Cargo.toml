@@ -1,7 +1,12 @@
 [package]
 name = "fuzz-target"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
 
 [dependencies]
 afl = "0.17.0"
