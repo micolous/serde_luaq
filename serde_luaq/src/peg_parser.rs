@@ -429,6 +429,11 @@ peg::parser! {
         ///
         /// The value _may_ be preceeded or followed by whitespace.
         ///
+        /// For more details about type mapping rules and parameters,
+        /// [see the crate docs][crate#data-types].
+        ///
+        /// ## Example
+        ///
         /// ```rust
         /// use serde_luaq::{lua_value, LuaValue};
         ///
@@ -437,20 +442,18 @@ peg::parser! {
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        ///
-        /// `max_depth` defines the maximum recursion depth for tables.
-        pub rule lua_value(max_depth: usize) -> LuaValue<'input>
+        pub rule lua_value(max_depth: u16) -> LuaValue<'input>
             = (
                 _ "nil" _ { LuaValue::Nil } /
                 _ "true" _ { LuaValue::Boolean(true) } /
                 _ "false" _ { LuaValue::Boolean(false) } /
                 _ n:numbers() _ { LuaValue::Number(n) } /
                 _ s:string() _ { LuaValue::String(s) } /
-                _ t:table(max_depth.saturating_sub(1)) _ { LuaValue::Table(t) } /
+                _ t:table(max_depth) _ { LuaValue::Table(t) } /
                 expected!("Lua value")
             )
 
-        rule table_entry(max_depth: usize) -> LuaTableEntry<'input>
+        rule table_entry(max_depth: u16) -> LuaTableEntry<'input>
             = (
                 // ["foo"]="bar"
                 // [1234]="bar"
@@ -474,10 +477,10 @@ peg::parser! {
                 expected!("Lua table entry")
             )
 
-        rule table_entries(max_depth: usize) -> Vec<LuaTableEntry<'input>>
+        rule table_entries(max_depth: u16) -> Vec<LuaTableEntry<'input>>
             = entries:table_entry(max_depth) ** ([b',' | b';'])
 
-        rule table(max_depth: usize) -> Vec<LuaTableEntry<'input>>
+        rule table(max_depth: u16) -> Vec<LuaTableEntry<'input>>
             =
                 ("{" {?
                     // rust-peg doesn't have a stack limit; workaround based on
@@ -489,7 +492,7 @@ peg::parser! {
                     }
                 })
                 _
-                e:table_entries(max_depth)
+                e:table_entries(max_depth.saturating_sub(1))
                 _
                 // 3.4.9: [A table's] field list can have an optional trailing separator, as a
                 // convenience for machine-generated code.
@@ -497,11 +500,16 @@ peg::parser! {
                 _
                 "}" { e }
 
-        rule assignment(max_depth: usize) -> (&'input str, LuaValue<'input>)
+        rule assignment(max_depth: u16) -> (&'input str, LuaValue<'input>)
             = i:identifier() _ "=" _ v:lua_value(max_depth) { (i, v) }
 
         /// Parse a Lua script containing variable assignments into a [`Vec`] of
         /// `(&str, LuaValue)`.
+        ///
+        /// For more details about type mapping rules and parameters,
+        /// [see the crate docs][crate#data-types].
+        ///
+        /// ## Example
         ///
         /// ```rust
         /// use serde_luaq::{script, LuaValue};
@@ -516,13 +524,15 @@ peg::parser! {
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        ///
-        /// `max_depth` defines the maximum recursion depth for tables.
-
-        pub rule script(max_depth: usize) -> Vec<(&'input str, LuaValue<'input>)>
+        pub rule script(max_depth: u16) -> Vec<(&'input str, LuaValue<'input>)>
             = (_ a:assignment(max_depth) _ (";" _)* { a })*
 
         /// Parse a Lua `return` stamement into a [`LuaValue`].
+        ///
+        /// For more details about type mapping rules and parameters,
+        /// [see the crate docs][crate#data-types].
+        ///
+        /// ## Example
         ///
         /// ```rust
         /// use serde_luaq::{return_statement, LuaValue};
@@ -531,9 +541,7 @@ peg::parser! {
         /// ```
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
-        ///
-        /// `max_depth` defines the maximum recursion depth for tables.
-        pub rule return_statement(max_depth: usize) -> LuaValue<'input>
+        pub rule return_statement(max_depth: u16) -> LuaValue<'input>
             = _ "return" __ v:lua_value(max_depth) _ { v }
     }
 }

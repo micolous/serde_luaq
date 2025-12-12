@@ -4,7 +4,8 @@
 use serde_luaq::{lua_value, return_statement, script, LuaValue};
 use std::borrow::Borrow;
 
-pub const MAX_DEPTH: usize = 16;
+/// Maximum table depth for all tests. Our tests are very small!
+pub const MAX_DEPTH: u16 = 16;
 
 /// Parse a buffer of Lua code and expect no remaining value.
 pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
@@ -17,11 +18,41 @@ pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
         assert_eq!(&actual, expected, "lua: {}", lua.escape_ascii());
     }
 
+    // Script
     let mut s = Vec::with_capacity(lua.len() + 4);
     s.extend_from_slice(b"a = ");
     s.extend_from_slice(lua);
 
     let (n, actual) = script(&s, MAX_DEPTH).unwrap().pop().unwrap();
+    assert_eq!("a", n);
+
+    if expected.is_nan() {
+        assert!(actual.is_nan(), "lua: {}", s.escape_ascii());
+    } else {
+        assert_eq!(&actual, expected, "lua: {}", s.escape_ascii());
+    }
+
+    // Return statement
+    let mut s = Vec::with_capacity(lua.len() + 7);
+    s.extend_from_slice(b"return ");
+    s.extend_from_slice(lua);
+
+    let actual = return_statement(&s, MAX_DEPTH).unwrap();
+    assert_eq!("a", n);
+
+    if expected.is_nan() {
+        assert!(actual.is_nan(), "lua: {}", s.escape_ascii());
+    } else {
+        assert_eq!(&actual, expected, "lua: {}", s.escape_ascii());
+    }
+
+    // Return statement with extra whitespace
+    let mut s = Vec::with_capacity(lua.len() + 7);
+    s.extend_from_slice(b"return \n");
+    s.extend_from_slice(lua);
+    s.extend_from_slice(b"\n");
+
+    let actual = return_statement(&s, MAX_DEPTH).unwrap();
     assert_eq!("a", n);
 
     if expected.is_nan() {

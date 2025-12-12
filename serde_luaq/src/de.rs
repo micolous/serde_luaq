@@ -838,124 +838,14 @@ pub enum LuaFormat {
 ///
 /// The Lua expression may only consist of simple data, with restrictions similar to JSON.
 ///
-/// ## Lua type mapping
-///
-/// | Lua type  | [`LuaValue`] variant    | Rust type                          |
-/// | --------- | ----------------------- | ---------------------------------- |
-/// | `nil`     | [`LuaValue::Nil`][]     | [`Option::None`][]                 |
-/// | `boolean` | [`LuaValue::Boolean`][] | [`bool`][]                         |
-/// | `string`  | [`LuaValue::String`][]  | `[u8]`, `Vec<u8>`, [`String`] ([see note](#strings)) |
-/// | `number`  | [`LuaValue::Number`][]  | [`LuaNumber`][]                    |
-/// | ...`float` subtype   | [`LuaNumber::Float`][]   | [`f64`][]                |
-/// | ...`integer` subtype | [`LuaNumber::Integer`][] | [`i64`][]                |
-/// | `table`   | [`LuaValue::Table`][]   | [`BTreeMap`][], [`HashMap`][std::collections::HashMap], [`Vec<T>`] |
-///
-/// **Note:** [`LuaValue`][] does not implement [`Deserialize`], so cannot be used as a Serde field.
-///
-/// ## Numbers
-///
-/// `serde_luaq` follows Lua 5.4's number handling semantics:
-///
-/// | Literal | [`LuaNumber`][] | [`f64`][] | [`i64`][] |
-/// | ------- | :-------------: | :-------: | :-------: |
-/// | Decimal integer,<br>inside [`i64`][] range | ✅ | may lose precision | ✅ |
-/// | Decimal integer,<br>outside [`i64`][] range | will lose precision | will lose precision | ❌ |
-/// | Hexadecimal integer | ✅ | may lose precision | ✅ |
-/// | Decimal float | ✅ | ✅ | ❌ |
-/// | Hexadecimal float[^wasm] | ✅ | ✅ | ❌ |
-/// | `(0/0)` (NaN) | ✅ | ✅ | ❌ |
-///
-/// [^wasm]: Not supported on WASM targets
-///
-/// * A [`LuaNumber`][] field will follow Lua 5.4 semantics, which could be a [`i64`][] or
-///   [`f64`][].
-///
-/// * An [`f64`][] field will accept decimal integer literals from &minus;(2<sup>53</sup> &minus; 1)
-///   to (2<sup>53</sup> &minus; 1) without loss of precision.
-///
-/// * Decimal integer literals _outside_ of the [`i64`][] range are converted to [`f64`][], and will
-///   lose precision. These cannot be used with [`i64`][] fields.
-///
-/// * Hexadecimal integer literals _outside_ of the [`i64`][] range will under/overflow as
-///   [`i64`][], even in [`f64`][] fields (ie: `0xffffffffffffffff` is `-1_f64`), and can _always_
-///   be used with [`i64`][] fields.
-///
-/// * Unsigned integer fields like [`u8`][] and [`u16`][] reject all negative integer literals,
-///   including hexadecimal integer literals.
-///
-/// * Narrower integer fields like [`i8`][] and [`i16`][] reject all integer literals outside of
-///   their range, including hexadecimal integer literals.
-///
-/// * Narrower float fields like [`f32`][] are first handled as a [`f64`][] then converted to
-///   [`f32`][]. This will result in a loss of precision, and values outside of
-///   [their acceptable range][f32::MAX] will be set to [positive][f32::INFINITY] or
-///   [negative infinity][f32::NEG_INFINITY].
-///
-/// * Wider integer fields like [`i128`][] and [`u64`][] apply the same limits as [`i64`][], even
-///   with hexadecimal integer literals.
-///
-/// ## Strings
-///
-/// Lua strings are "8-bit clean", and can contain *any* 8-bit value (ie: `[u8]`). This is preserved
-/// if using a `Vec<u8>` field with `#[serde(with = "serde_bytes")]` or a `serde_bytes::BytesBuf`
-/// field.
-///
-/// Lua's `\u{...}` escapes follow [RFC 2279][] (1998) rather than [RFC 3629][] (2003). RFC 2279
-/// allows [surrogate code points][surrogate] and code points greater than `\u{10FFFF}`, which are
-/// no longer allowed. `serde_luaq` will convert these into bytes.
-///
-/// [`String`] fields can be used the string literal evaluates to valid RFC 3629 UTF-8. This is not
-/// guaranteed even if [the input data is `&str`][self::from_str], as Lua string escapes may
-/// evaluate to binary values or invalid sequences (eg: `"\xC1\u{7FFFFFFF}"`).
-///
-/// ## Tables
-///
-/// Lua tables are used for both lists and maps.
-///
-/// ### Duplicate table keys
-///
-/// In `serde_luaq`, later entries always overwrite earlier entries, regardless of how they are
-/// defined, ie:
-///
-/// ```lua
-/// { ['a'] = 1, a = 2 } == { ['a'] = 2 }
-/// { 1, [1] = 2 } == { 2 }
-/// { [1] = 1, 2 } == { 2 }
-/// ```
-///
-/// By comparison, using duplicate table keys is undefined behaviour in Lua.
-///
-/// ### Tables as lists (Vec)
-///
-/// Lua tables are 1-indexed, rather than 0-indexed. `serde_luaq` will handle these differences on
-/// the input side for explicitly-keyed values, but the resulting [`Vec`] will be 0-indexed.
-///
-/// Table entries may be defined with implicit or explicit keys, or a combination. Any missing
-/// entries will be treated as `nil`:
-///
-/// ```text
-/// { 1, [3] = 2 } == vec![Some(1), None, Some(2)]
-/// ```
-///
-/// ### Tables as maps (BTreeMap/HashMap)
-///
-/// If the key of the map is [`LuaValue`] or an integer type, table entries may contain implicit
-/// keys. Like Lua, implicit keys start counting at 1, without regard for explicit keys.
-///
-/// Otherwise, all entries must be explicitly keyed.
-///
-/// ### Tables as structs
-///
-/// When deserialising a table as a `struct`, all keys must be strings or
-/// [Lua identifiers][LuaTableEntry::NameValue].
-///
-/// [Serde does not support numeric keys in structs][serde-num-keys].
+/// For more details about type mapping rules and parameters,
+/// [see the crate docs][crate#data-types].
 ///
 /// [serde-num-keys]: https://github.com/serde-rs/serde/issues/2358
 /// [surrogate]: https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/#G2630
 /// [RFC 2279]: https://www.rfc-editor.org/rfc/rfc2279
 /// [RFC 3629]: https://www.rfc-editor.org/rfc/rfc3629
-pub fn from_slice<'a, T>(b: &'a [u8], format: LuaFormat, max_depth: usize) -> Result<T, Error>
+pub fn from_slice<'a, T>(b: &'a [u8], format: LuaFormat, max_depth: u16) -> Result<T, Error>
 where
     T: de::Deserialize<'a>,
 {
@@ -981,7 +871,7 @@ where
 ///
 /// [lua2.1]: https://www.lua.org/manual/5.4/manual.html#2.1
 #[inline]
-pub fn from_str<'a, T>(b: &'a str, format: LuaFormat, max_depth: usize) -> Result<T, Error>
+pub fn from_str<'a, T>(b: &'a str, format: LuaFormat, max_depth: u16) -> Result<T, Error>
 where
     T: de::Deserialize<'a>,
 {

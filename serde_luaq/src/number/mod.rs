@@ -8,7 +8,7 @@ pub const MAX_F64_INTEGER: i64 = (1_i64 << f64::MANTISSA_DIGITS) - 1;
 /// Minimum integer value that can be represented in an [`f64`] without loss of precision.
 pub const MIN_F64_INTEGER: i64 = -((1_i64 << f64::MANTISSA_DIGITS) - 1);
 
-/// Lua number types.
+/// Lua 5.4 number types.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LuaNumber {
     /// *number* type, *integer* subtype.
@@ -43,10 +43,7 @@ impl LuaNumber {
     /// Returns `true` if the value is positive or negative infinity.
     #[inline]
     pub const fn is_infinite(&self) -> bool {
-        match self {
-            LuaNumber::Float(f) => f.is_infinite(),
-            LuaNumber::Integer(_) => false,
-        }
+        matches!(self, LuaNumber::Float(f) if f.is_infinite())
     }
 
     /// Returns `true` if the number is represented using the `integer` subtype.
