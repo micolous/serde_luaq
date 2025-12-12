@@ -429,6 +429,11 @@ peg::parser! {
         ///
         /// The value _may_ be preceeded or followed by whitespace.
         ///
+        /// For more details about type mapping rules and parameters,
+        /// [see the crate docs][crate#data-types].
+        ///
+        /// ## Example
+        ///
         /// ```rust
         /// use serde_luaq::{lua_value, LuaValue};
         ///
@@ -523,6 +528,11 @@ peg::parser! {
             = (_ a:assignment(max_depth) _ (";" _)* { a })*
 
         /// Parse a Lua `return` stamement into a [`LuaValue`].
+        ///
+        /// For more details about type mapping rules and parameters,
+        /// [see the crate docs][crate#data-types].
+        ///
+        /// ## Example
         ///
         /// ```rust
         /// use serde_luaq::{return_statement, LuaValue};
