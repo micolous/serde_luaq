@@ -62,7 +62,7 @@
 //! assert_eq!(
 //!     expected,
 //!     from_slice(
-//!         b"{a=true, [[[b]]]={[3] = 3, 0x1, 2}, ['c'] = { foo = \"bar\" }}",
+//!         b"{a=true, [ [[b]] ]={[3] = 3, 0x1, 2}, ['c'] = { foo = \"bar\" }}",
 //!         LuaFormat::Value,
 //!         /* maximum table depth */ 16,
 //!     ).unwrap(),

@@ -41,7 +41,7 @@ fn simple_table() -> Result {
             "a",
             "b";
             x3yz = 0x12,
-            [[[foo]]] = "bar",
+            [ [[foo]]] = "bar",
             [5] = 42,
             [0xa] = 3.14,
         }
