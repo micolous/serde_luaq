@@ -1,5 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
+    "fuzz-target",
     "serde_luaq",
 ]
+
+[workspace.dependencies]
+serde_luaq = { path = "./serde_luaq" }
+
+[workspace.package]
+version = "0.2.0"
+authors = ["Michael Farrell <micolous+git@gmail.com>"]
+edition = "2021"
+repository = "https://github.com/micolous/serde_luaq"
+license = "MIT OR Apache-2.0"
+rust-version = "1.88"

@@ -1,0 +1,13 @@
+[package]
+name = "fuzz-target"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+afl = "0.17.0"
+serde_luaq.workspace = true
