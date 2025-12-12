@@ -4,7 +4,8 @@
 use serde_luaq::{lua_value, return_statement, script, LuaValue};
 use std::borrow::Borrow;
 
-pub const MAX_DEPTH: usize = 16;
+/// Maximum table depth for all tests. Our tests are very small!
+pub const MAX_DEPTH: u16 = 16;
 
 /// Parse a buffer of Lua code and expect no remaining value.
 pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {

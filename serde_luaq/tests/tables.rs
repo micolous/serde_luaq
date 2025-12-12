@@ -118,7 +118,7 @@ fn tables() {
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn recursion() {
     let b = b"{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}";
-    assert_eq!(b.len(), (MAX_DEPTH - 1) * 2);
+    assert_eq!(b.len(), (MAX_DEPTH as usize - 1) * 2);
 
     check(
         b,
@@ -146,7 +146,7 @@ fn recursion() {
     );
 
     let b = b"{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}";
-    assert_eq!(b.len(), MAX_DEPTH * 2);
+    assert_eq!(b.len(), MAX_DEPTH as usize * 2);
     should_error(b);
 
     // Recursing heavily shouldn't crash.

@@ -955,7 +955,7 @@ pub enum LuaFormat {
 /// [surrogate]: https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/#G2630
 /// [RFC 2279]: https://www.rfc-editor.org/rfc/rfc2279
 /// [RFC 3629]: https://www.rfc-editor.org/rfc/rfc3629
-pub fn from_slice<'a, T>(b: &'a [u8], format: LuaFormat, max_depth: usize) -> Result<T, Error>
+pub fn from_slice<'a, T>(b: &'a [u8], format: LuaFormat, max_depth: u16) -> Result<T, Error>
 where
     T: de::Deserialize<'a>,
 {
@@ -981,7 +981,7 @@ where
 ///
 /// [lua2.1]: https://www.lua.org/manual/5.4/manual.html#2.1
 #[inline]
-pub fn from_str<'a, T>(b: &'a str, format: LuaFormat, max_depth: usize) -> Result<T, Error>
+pub fn from_str<'a, T>(b: &'a str, format: LuaFormat, max_depth: u16) -> Result<T, Error>
 where
     T: de::Deserialize<'a>,
 {

@@ -13,7 +13,9 @@ use std::{
 ///
 /// 64 MiB is enough for anyone. 🙃
 const DEFAULT_SIZE_LIMIT: usize = 64 * 1024 * 1024;
-const DEFAULT_MAX_DEPTH: usize = 128;
+
+/// Default maximum table depth (`LUAI_MAXCCALLS`).
+const DEFAULT_MAX_DEPTH: u16 = 200;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -59,7 +61,7 @@ struct Args {
 
     /// Maximum table depth. Increasing this risks the library crashing with a stack overflow.
     #[arg(long, default_value_t = DEFAULT_MAX_DEPTH, id = "DEPTH")]
-    max_depth: usize,
+    max_depth: u16,
 
     /// Use lossy string conversion, rather than erroring.
     #[arg(long)]
