@@ -66,6 +66,14 @@ struct Args {
     /// Use lossy string conversion, rather than erroring.
     #[arg(long)]
     lossy_string: bool,
+
+    /// Stop once the Lua value has been loaded.
+    #[arg(long)]
+    no_json: bool,
+
+    /// Convert the Lua value to a JSON object, but don't serialise it.
+    #[arg(long)]
+    no_output: bool,
 }
 
 fn main() -> Result {
@@ -95,7 +103,15 @@ fn main() -> Result {
         LuaInputFormat::Return => return_statement(&buf, args.max_depth)?,
     };
 
+    if args.no_json {
+        return Ok(());
+    }
+
     let json_value = to_json_value(lua_value, &opts)?;
+
+    if args.no_output {
+        return Ok(());
+    }
 
     let f: Box<dyn Write> = if let Some(output) = args.output {
         Box::new(File::options().create_new(true).write(true).open(output)?)

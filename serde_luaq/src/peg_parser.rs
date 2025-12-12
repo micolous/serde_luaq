@@ -47,6 +47,34 @@ fn slice_of_byte(i: u8) -> Cow<'static, [u8]> {
     Cow::Borrowed(&BYTES[i as usize..][..1])
 }
 
+/// Merges zero or more string spans into a single string.
+///
+/// This tries to avoid copying where `s` is empty or contains exactly one span.
+fn merge_spans<'a>(s: Vec<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
+    if s.is_empty() {
+        // Empty string
+        return EMPTY;
+    }
+
+    if s.len() == 1 {
+        // If there's only one span, return it directly, rather than
+        // copying it.
+        let mut s = s;
+        return s.swap_remove(0);
+    }
+
+    let l: usize = s.iter().map(|c| c.len()).sum();
+    let mut o = Vec::with_capacity(l);
+    for i in s.into_iter() {
+        match i {
+            Cow::Borrowed(b) => o.extend_from_slice(b),
+            Cow::Owned(mut v) => o.append(&mut v),
+        }
+    }
+
+    Cow::Owned(o)
+}
+
 peg::parser! {
     pub grammar lua() for [u8] {
         rule identifier() -> &'input str
@@ -226,7 +254,8 @@ peg::parser! {
                             // Coerce to float
                             Ok(LuaNumber::Float(f))
                         } else {
-                            Err("")
+                            // Shouldn't get here
+                            Err("decimal literal parse error")
                         }
                     }
                 )
@@ -334,96 +363,65 @@ peg::parser! {
         /// Parses a double-quoted string.
         rule double_quoted_string() -> Cow<'input, [u8]>
             = "\"" s:double_quoted_chars()* "\"" {
-                if s.is_empty() {
-                    // Empty string
-                    return EMPTY;
-                }
-
-                if s.len() == 1 {
-                    // If there's only one span, return it directly, rather than
-                    // copying it.
-                    let mut s = s;
-                    return s.swap_remove(0);
-                }
-
-                // Multiple elements, need to copy.
-                let mut o = Vec::new();
-                for i in s.into_iter() {
-                    o.extend_from_slice(&i);
-                }
-
-                Cow::Owned(o)
+                merge_spans(s)
             }
 
         /// Parses a single-quoted string.
         rule single_quoted_string() -> Cow<'input, [u8]>
             = "'" s:single_quoted_chars()* "'" {
-                if s.is_empty() {
-                    // Empty string
-                    return EMPTY;
-                }
-
-                if s.len() == 1 {
-                    // If there's only one span, return it directly, rather than
-                    // copying it.
-                    let mut s = s;
-                    return s.pop().unwrap();
-                }
-
-                // Multiple elements, need to copy.
-                let mut o = Vec::new();
-                for i in s.into_iter() {
-                    o.extend_from_slice(&i);
-                }
-
-                Cow::Owned(o)
+                merge_spans(s)
             }
 
         // TODO: find a way to make this work with arbitrary levels.
-        rule longer_string(level: usize) -> Cow<'input, [u8]>
+        rule longer_string(level: usize, long_string_needs_whitespace: bool, ws: &[u8]) -> Cow<'input, [u8]>
             =
-                // Matches empty strings
-                "[" "="*<{level}> "[" linebreak()? "]" "="*<{level}> "]" { EMPTY } /
-
-                // Matches non-empty strings
-                "[" "="*<{level}> "["
+                ("[" "="*<{level}> "[" {?
+                    if ws.is_empty() && long_string_needs_whitespace {
+                        Err("longer string must be preceeded with whitespace")
+                    } else {
+                        Ok(())
+                    }
+                })
                 linebreak()?
                 v:$(
                     (
                         !("]" "="*<{level}> "]")
                         [_]
                     )+
-                )
+                )?
                 "]" "="*<{level}> "]"
-                { v.into() }
+                { v.map(Cow::Borrowed).unwrap_or(EMPTY) }
 
-        rule long_string() -> Cow<'input, [u8]>
+        rule long_string(long_string_needs_whitespace: bool, ws: &[u8]) -> Cow<'input, [u8]>
             =
-                // Matches empty strings
-                "[[" linebreak()? "]]" { EMPTY } /
-
-                // Matches non-empty strings
-                "[["
+                ("[[" {?
+                    if ws.is_empty() && long_string_needs_whitespace {
+                        Err("long string must be preceeded with whitespace")
+                    } else {
+                        Ok(())
+                    }
+                })
                 linebreak()?
                 v:$(
                     (
                         !"]]"
                         [_]
                     )+
-                )
-                "]]" { v.into() }
+                )?
+                "]]"
+                { v.map(Cow::Borrowed).unwrap_or(EMPTY) }
 
         /// Parses a string.
-        rule string() -> Cow<'input, [u8]>
+        rule string(long_string_needs_whitespace: bool, ws: &[u8]) -> Cow<'input, [u8]>
             =
                 single_quoted_string() /
                 double_quoted_string() /
-                long_string() /
-                longer_string(1) /
-                longer_string(2) /
-                longer_string(3) /
-                longer_string(4) /
-                longer_string(5)
+                long_string(long_string_needs_whitespace, ws) /
+                longer_string(1, long_string_needs_whitespace, ws) /
+                longer_string(2, long_string_needs_whitespace, ws) /
+                longer_string(3, long_string_needs_whitespace, ws) /
+                longer_string(4, long_string_needs_whitespace, ws) /
+                longer_string(5, long_string_needs_whitespace, ws)
 
         /// Parse a bare Lua value expression as a [`LuaValue`].
         ///
@@ -443,39 +441,44 @@ peg::parser! {
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
         pub rule lua_value(max_depth: u16) -> LuaValue<'input>
-            = (
-                _ "nil" _ { LuaValue::Nil } /
-                _ "true" _ { LuaValue::Boolean(true) } /
-                _ "false" _ { LuaValue::Boolean(false) } /
-                _ n:numbers() _ { LuaValue::Number(n) } /
-                _ s:string() _ { LuaValue::String(s) } /
-                _ t:table(max_depth) _ { LuaValue::Table(t) } /
-                expected!("Lua value")
-            )
+            = lua_value_inner(max_depth, false)
+
+        pub rule lua_value_inner(max_depth: u16, long_string_needs_whitespace: bool) -> LuaValue<'input>
+            =
+                ws:$(_)
+                v:(
+                    "nil" { LuaValue::Nil } /
+                    "true" { LuaValue::Boolean(true) } /
+                    "false" { LuaValue::Boolean(false) } /
+                    n:numbers() { LuaValue::Number(n) } /
+                    s:string(long_string_needs_whitespace, ws) { LuaValue::String(s) } /
+                    t:table(max_depth) { LuaValue::Table(t) } /
+                    expected!("Lua value")
+                ) _ { v }
 
         rule table_entry(max_depth: u16) -> LuaTableEntry<'input>
-            = (
+            = _ v:(
                 // ["foo"]="bar"
                 // [1234]="bar"
-                _ "[" _ key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth) _
+                "[" key:lua_value_inner(max_depth, true) _ "]" _ "=" _ val:lua_value_inner(max_depth, false)
                 {
                     LuaTableEntry::KeyValue(key, val)
                 } /
 
                 // foo = "bar"
-                _ key:identifier() _ "=" _ val:lua_value(max_depth) _
+                key:identifier() _ "=" _ val:lua_value(max_depth)
                 {
                     LuaTableEntry::NameValue(Cow::Borrowed(key), val)
                 } /
 
                 // "foo"
-                _ val:lua_value(max_depth) _
+                val:lua_value(max_depth)
                 {
                     LuaTableEntry::Value(val)
                 } /
 
                 expected!("Lua table entry")
-            )
+            ) _ { v }
 
         rule table_entries(max_depth: u16) -> Vec<LuaTableEntry<'input>>
             = entries:table_entry(max_depth) ** ([b',' | b';'])

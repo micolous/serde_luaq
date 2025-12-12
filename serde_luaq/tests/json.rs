@@ -110,7 +110,7 @@ fn table_coersion() -> Result {
         json!({"a": 1, "b": 2, "c": 3, "d": 4}),
         to_json_value(
             lua_value(
-                b"{['a'] = 1, [\"b\"] = 2, [[[c]]] = 3, [[=[d]=]] = 4}",
+                b"{['a'] = 1, [\"b\"] = 2, [ [[c]] ] = 3, [ [=[d]=]] = 4}",
                 MAX_DEPTH
             )?,
             &DEFAULT_OPTS
@@ -148,7 +148,7 @@ fn table_coersion() -> Result {
         json!({"true": 1, "false": 2, "nil": 3}),
         to_json_value(
             lua_value(
-                b"{['true'] = 0, [true] = 1, [false] = 0, ['false'] = 2, [[[nil]]] = 0, [nil] = 3}",
+                b"{['true'] = 0, [true] = 1, [false] = 0, ['false'] = 2, [ [[nil]] ] = 0, [nil] = 3}",
                 MAX_DEPTH,
             )?,
             &DEFAULT_OPTS
