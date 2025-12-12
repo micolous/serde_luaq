@@ -450,40 +450,32 @@ peg::parser! {
                 expected!("Lua value")
             )
 
-        rule table_entry(max_depth: usize) -> Option<LuaTableEntry<'input>>
+        rule table_entry(max_depth: usize) -> LuaTableEntry<'input>
             = (
                 // ["foo"]="bar"
                 // [1234]="bar"
                 _ "[" _ key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth) _
                 {
-                    Some(LuaTableEntry::KeyValue(key, val))
+                    LuaTableEntry::KeyValue(key, val)
                 } /
 
                 // foo = "bar"
                 _ key:identifier() _ "=" _ val:lua_value(max_depth) _
                 {
-                    Some(LuaTableEntry::NameValue(Cow::Borrowed(key), val))
+                    LuaTableEntry::NameValue(Cow::Borrowed(key), val)
                 } /
 
                 // "foo"
                 _ val:lua_value(max_depth) _
                 {
-                    Some(LuaTableEntry::Value(val))
-                } /
-
-                // Empty entry
-                _ {
-                    None
+                    LuaTableEntry::Value(val)
                 } /
 
                 expected!("Lua table entry")
             )
 
         rule table_entries(max_depth: usize) -> Vec<LuaTableEntry<'input>>
-            = entries:table_entry(max_depth) ** ("," / ";") {
-                // Remove empty entries.
-                entries.into_iter().flatten().collect()
-            }
+            = entries:table_entry(max_depth) ** ([b',' | b';'])
 
         rule table(max_depth: usize) -> Vec<LuaTableEntry<'input>>
             =
@@ -498,6 +490,10 @@ peg::parser! {
                 })
                 _
                 e:table_entries(max_depth)
+                _
+                // 3.4.9: [A table's] field list can have an optional trailing separator, as a
+                // convenience for machine-generated code.
+                [b',' | b';']?
                 _
                 "}" { e }
 
