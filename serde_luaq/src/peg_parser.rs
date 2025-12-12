@@ -47,6 +47,34 @@ fn slice_of_byte(i: u8) -> Cow<'static, [u8]> {
     Cow::Borrowed(&BYTES[i as usize..][..1])
 }
 
+/// Merges zero or more string spans into a single string.
+///
+/// This tries to avoid copying where `s` is empty or contains exactly one span.
+fn merge_spans<'a>(s: Vec<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
+    if s.is_empty() {
+        // Empty string
+        return EMPTY;
+    }
+
+    if s.len() == 1 {
+        // If there's only one span, return it directly, rather than
+        // copying it.
+        let mut s = s;
+        return s.swap_remove(0);
+    }
+
+    let l: usize = s.iter().map(|c| c.len()).sum();
+    let mut o = Vec::with_capacity(l);
+    for i in s.into_iter() {
+        match i {
+            Cow::Borrowed(b) => o.extend_from_slice(b),
+            Cow::Owned(mut v) => o.append(&mut v),
+        }
+    }
+
+    Cow::Owned(o)
+}
+
 peg::parser! {
     pub grammar lua() for [u8] {
         rule identifier() -> &'input str
@@ -334,49 +362,13 @@ peg::parser! {
         /// Parses a double-quoted string.
         rule double_quoted_string() -> Cow<'input, [u8]>
             = "\"" s:double_quoted_chars()* "\"" {
-                if s.is_empty() {
-                    // Empty string
-                    return EMPTY;
-                }
-
-                if s.len() == 1 {
-                    // If there's only one span, return it directly, rather than
-                    // copying it.
-                    let mut s = s;
-                    return s.swap_remove(0);
-                }
-
-                // Multiple elements, need to copy.
-                let mut o = Vec::new();
-                for i in s.into_iter() {
-                    o.extend_from_slice(&i);
-                }
-
-                Cow::Owned(o)
+                merge_spans(s)
             }
 
         /// Parses a single-quoted string.
         rule single_quoted_string() -> Cow<'input, [u8]>
             = "'" s:single_quoted_chars()* "'" {
-                if s.is_empty() {
-                    // Empty string
-                    return EMPTY;
-                }
-
-                if s.len() == 1 {
-                    // If there's only one span, return it directly, rather than
-                    // copying it.
-                    let mut s = s;
-                    return s.pop().unwrap();
-                }
-
-                // Multiple elements, need to copy.
-                let mut o = Vec::new();
-                for i in s.into_iter() {
-                    o.extend_from_slice(&i);
-                }
-
-                Cow::Owned(o)
+                merge_spans(s)
             }
 
         // TODO: find a way to make this work with arbitrary levels.
