@@ -116,9 +116,13 @@ fn tables() {
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
-fn recursion() {
-    let b = b"{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}";
-    assert_eq!(b.len(), (MAX_DEPTH as usize - 1) * 2);
+fn recursion() -> Result {
+    let b = b"{}";
+    assert!(lua_value(b, 0).is_err());
+    assert_eq!(LuaValue::Table(vec![]), lua_value(b, 1)?);
+
+    let b = b"{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}";
+    assert_eq!(b.len(), (MAX_DEPTH as usize) * 2);
 
     check(
         b,
@@ -132,7 +136,9 @@ fn recursion() {
                                     LuaTableEntry::Value(LuaValue::Table(vec![
                                         LuaTableEntry::Value(LuaValue::Table(vec![
                                             LuaTableEntry::Value(LuaValue::Table(vec![
-                                                LuaTableEntry::Value(LuaValue::Table(vec![])),
+                                                LuaTableEntry::Value(LuaValue::Table(vec![
+                                                    LuaTableEntry::Value(LuaValue::Table(vec![])),
+                                                ])),
                                             ])),
                                         ])),
                                     ])),
@@ -145,8 +151,8 @@ fn recursion() {
         ]))]),
     );
 
-    let b = b"{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}";
-    assert_eq!(b.len(), MAX_DEPTH as usize * 2);
+    let b = b"{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}";
+    assert_eq!(b.len(), (MAX_DEPTH as usize + 1) * 2);
     should_error(b);
 
     // Recursing heavily shouldn't crash.
@@ -154,4 +160,6 @@ fn recursion() {
     b.resize(32768, b'{');
     b.resize(65536, b'}');
     should_error(&b);
+
+    Ok(())
 }

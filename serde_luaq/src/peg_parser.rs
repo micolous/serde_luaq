@@ -449,7 +449,7 @@ peg::parser! {
                 _ "false" _ { LuaValue::Boolean(false) } /
                 _ n:numbers() _ { LuaValue::Number(n) } /
                 _ s:string() _ { LuaValue::String(s) } /
-                _ t:table(max_depth.saturating_sub(1)) _ { LuaValue::Table(t) } /
+                _ t:table(max_depth) _ { LuaValue::Table(t) } /
                 expected!("Lua value")
             )
 
@@ -492,7 +492,7 @@ peg::parser! {
                     }
                 })
                 _
-                e:table_entries(max_depth)
+                e:table_entries(max_depth.saturating_sub(1))
                 _
                 // 3.4.9: [A table's] field list can have an optional trailing separator, as a
                 // convenience for machine-generated code.
