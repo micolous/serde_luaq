@@ -254,7 +254,8 @@ peg::parser! {
                             // Coerce to float
                             Ok(LuaNumber::Float(f))
                         } else {
-                            Err("")
+                            // Shouldn't get here
+                            Err("decimal literal parse error")
                         }
                     }
                 )
@@ -428,39 +429,39 @@ peg::parser! {
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
         pub rule lua_value(max_depth: u16) -> LuaValue<'input>
-            = (
-                _ "nil" _ { LuaValue::Nil } /
-                _ "true" _ { LuaValue::Boolean(true) } /
-                _ "false" _ { LuaValue::Boolean(false) } /
-                _ n:numbers() _ { LuaValue::Number(n) } /
-                _ s:string() _ { LuaValue::String(s) } /
-                _ t:table(max_depth) _ { LuaValue::Table(t) } /
+            = _ v:(
+                "nil" { LuaValue::Nil } /
+                "true" { LuaValue::Boolean(true) } /
+                "false" { LuaValue::Boolean(false) } /
+                n:numbers() { LuaValue::Number(n) } /
+                s:string() { LuaValue::String(s) } /
+                t:table(max_depth) { LuaValue::Table(t) } /
                 expected!("Lua value")
-            )
+            ) _ { v }
 
         rule table_entry(max_depth: u16) -> LuaTableEntry<'input>
-            = (
+            = _ v:(
                 // ["foo"]="bar"
                 // [1234]="bar"
-                _ "[" _ key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth) _
+                "[" _ key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth)
                 {
                     LuaTableEntry::KeyValue(key, val)
                 } /
 
                 // foo = "bar"
-                _ key:identifier() _ "=" _ val:lua_value(max_depth) _
+                key:identifier() _ "=" _ val:lua_value(max_depth)
                 {
                     LuaTableEntry::NameValue(Cow::Borrowed(key), val)
                 } /
 
                 // "foo"
-                _ val:lua_value(max_depth) _
+                val:lua_value(max_depth)
                 {
                     LuaTableEntry::Value(val)
                 } /
 
                 expected!("Lua table entry")
-            )
+            ) _ { v }
 
         rule table_entries(max_depth: u16) -> Vec<LuaTableEntry<'input>>
             = entries:table_entry(max_depth) ** ([b',' | b';'])
