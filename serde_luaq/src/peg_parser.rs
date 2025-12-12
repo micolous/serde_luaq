@@ -382,10 +382,6 @@ peg::parser! {
         // TODO: find a way to make this work with arbitrary levels.
         rule longer_string(level: usize) -> Cow<'input, [u8]>
             =
-                // Matches empty strings
-                "[" "="*<{level}> "[" linebreak()? "]" "="*<{level}> "]" { EMPTY } /
-
-                // Matches non-empty strings
                 "[" "="*<{level}> "["
                 linebreak()?
                 v:$(
@@ -393,16 +389,12 @@ peg::parser! {
                         !("]" "="*<{level}> "]")
                         [_]
                     )+
-                )
+                )?
                 "]" "="*<{level}> "]"
-                { v.into() }
+                { v.map(Cow::Borrowed).unwrap_or(EMPTY) }
 
         rule long_string() -> Cow<'input, [u8]>
             =
-                // Matches empty strings
-                "[[" linebreak()? "]]" { EMPTY } /
-
-                // Matches non-empty strings
                 "[["
                 linebreak()?
                 v:$(
@@ -410,8 +402,9 @@ peg::parser! {
                         !"]]"
                         [_]
                     )+
-                )
-                "]]" { v.into() }
+                )?
+                "]]"
+                { v.map(Cow::Borrowed).unwrap_or(EMPTY) }
 
         /// Parses a string.
         rule string() -> Cow<'input, [u8]>
