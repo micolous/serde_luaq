@@ -3,6 +3,7 @@ mod common;
 
 use crate::common::{check, should_error, MAX_DEPTH};
 use serde_luaq::{lua_value, LuaTableEntry, LuaValue};
+use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
@@ -20,11 +21,17 @@ fn basics() {
 
     check(b"\"hello world\"", LuaValue::String(b"hello world".into()));
     check(b"'hello world'", LuaValue::String(b"hello world".into()));
+
+    // Unterminated strings
+    should_error(b"\"hello");
+    should_error(b"'hello");
+    should_error(b"\"hello\\z   \n\n");
+    should_error(b"'hello\\z   \n\n");
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
-fn long_string() {
+fn long_string() -> Result {
     check(b"[[]]", LuaValue::String(b"".into()));
     check(b"[=[]=]", LuaValue::String(b"".into()));
     check(b"[==[]==]", LuaValue::String(b"".into()));
@@ -135,6 +142,29 @@ fn long_string() {
             LuaTableEntry::Value(LuaValue::String(b"?".into())),
         ]),
     );
+
+    // Really long string
+    const A2048: [u8; 2048] = [b'a'; 2048];
+
+    let mut b = Vec::with_capacity(A2048.len() + 4);
+    b.extend_from_slice(b"[[");
+    b.extend_from_slice(&A2048);
+    b.extend_from_slice(b"]]");
+
+    check(&b, LuaValue::String((&A2048).into()));
+
+    // https://github.com/lua/lua/blob/104b0fc7008b1f6b7d818985fbbad05cd37ee654/testes/literals.lua#L261
+    check(b"[==[]=]==]", LuaValue::String(b"]=".into()));
+    check(
+        b"[==[[===[[=[]]=][====[]]===]===]==]",
+        LuaValue::String(b"[===[[=[]]=][====[]]===]===".into()),
+    );
+    check(
+        b"[====[[===[[=[]]=][====[]]===]===]====]",
+        LuaValue::String(b"[===[[=[]]=][====[]]===]===".into()),
+    );
+    check(b"[=[]]]]]]]]]=]", LuaValue::String(b"]]]]]]]]".into()));
+    Ok(())
 }
 
 #[test]
@@ -247,6 +277,15 @@ fn escapes() {
     check(
         r#""\"ílo\"\n\\""#.as_bytes(),
         LuaValue::String("\"ílo\"\n\\".as_bytes().into()),
+    );
+
+    // https://github.com/lua/lua/blob/104b0fc7008b1f6b7d818985fbbad05cd37ee654/testes/literals.lua#L24
+    check(b"'\\09912'", LuaValue::String(b"c12".into()));
+    check(b"'\\99ab'", LuaValue::String(b"cab".into()));
+    check(b"'\\099\\n'", LuaValue::String(b"c\n".into()));
+    check(
+        br"'\0\5\16\31\60\255\232'",
+        LuaValue::String(b"\x00\x05\x10\x1f\x3C\xFF\xE8".into()),
     );
 
     // Null bytes are allowed in strings
@@ -635,6 +674,8 @@ fn unicode_escapes() {
     should_error(br"'\u12'");
     should_error(br"'\uab'");
     should_error(br"'\u{'");
+    should_error(br"'\u{hi'");
+    should_error(br"'\u{327hi'");
     should_error(br"'\u{}'");
     should_error(br"'\u{ }'");
     should_error(br"'\u{hello}'");
