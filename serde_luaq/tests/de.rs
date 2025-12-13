@@ -645,6 +645,42 @@ fn field_naming() -> Result {
         )?
     );
 
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct UnicodeFields {
+        français: i16,
+        español: i16,
+        māori: i16,
+    }
+
+    let expected = UnicodeFields {
+        français: 1,
+        español: 2,
+        māori: 3,
+    };
+
+    assert_eq!(
+        expected,
+        from_slice(
+            "{['français'] = 1, [\"español\"] = 2, [ [[māori]]] = 3}".as_bytes(),
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
+    );
+
+    assert!(from_slice::<UnicodeFields>(
+        "{français=1, español=2, māori=3}".as_bytes(),
+        LuaFormat::Value,
+        MAX_DEPTH,
+    )
+    .is_err());
+
+    assert!(from_slice::<UnicodeFields>(
+        "français=1\nespañol=2\nmāori=3\n".as_bytes(),
+        LuaFormat::Script,
+        MAX_DEPTH,
+    )
+    .is_err());
+
     // Numeric key support blocked on https://github.com/serde-rs/serde/issues/2358
     // This also means we can't use a table with implicitly-keyed entries and map it to a numeric
     // key.
