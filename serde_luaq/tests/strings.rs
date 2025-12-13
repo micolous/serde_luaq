@@ -3,7 +3,6 @@ mod common;
 
 use crate::common::{check, should_error, MAX_DEPTH};
 use serde_luaq::{lua_value, LuaTableEntry, LuaValue};
-use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
