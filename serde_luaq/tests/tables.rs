@@ -101,6 +101,20 @@ fn tables() {
         LuaValue::Table(vec![LuaValue::Nil.into(), true.into(), false.into()]),
     );
 
+    // Keys with booleanish names
+    let b = b"{nil, nilth = 1, true, truer = 2, false, falsey = 3}";
+    check(
+        b,
+        LuaValue::Table(vec![
+            LuaTableEntry::NilValue,
+            LuaTableEntry::NameValue(Box::new(("nilth".into(), LuaValue::integer(1)))),
+            LuaTableEntry::BooleanValue(true),
+            LuaTableEntry::NameValue(Box::new(("truer".into(), LuaValue::integer(2)))),
+            LuaTableEntry::BooleanValue(false),
+            LuaTableEntry::NameValue(Box::new(("falsey".into(), LuaValue::integer(3)))),
+        ]),
+    );
+
     // Example on https://www.lua.org/manual/5.4/manual.html#3.4.9, without function calls
     let b = b"{ [9999] = \"g\"; 'x', \"y\"; x = 1, 9999, [30] = 23; 45 }";
     check(
