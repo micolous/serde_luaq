@@ -88,10 +88,19 @@
 //! However, [`LuaValue` doesn't implement `Deserialize`][LuaValue#serde], so can't be used as a
 //! Serde field.
 //!
+//! Generally speaking, `serde_luaq` tries to do whatever a default build of Lua 5.4 does,
+//! **except for**:
+//!
+//! * anything which requires evaluating or executing Lua code
+//! * locale-dependant behaviour
+//! * platform-dependant behaviour
+//!
 //! ### Numbers
 //!
-//! `serde_luaq` follows Lua 5.4's number handling semantics. The following types can be used with
-//! Serde's data model:
+//! `serde_luaq` follows Lua 5.4's number handling semantics, but _doesn't_ implement
+//! locale-specific behaviour (eg: [using `,` as a decimal point in addition to `.`][comma]).
+//!
+//! The following types can be used with Serde's data model:
 //!
 //! | Literal | [`LuaNumber`][] | [`f64`][] | [`i64`][] |
 //! | ------- | :-------------: | :-------: | :-------: |
@@ -148,6 +157,9 @@
 //! is not guaranteed even if [the input data is `&str`][self::from_str], as Lua string escapes may
 //! evaluate to binary values or invalid sequences (eg: `"\xC1\u{7FFFFFFF}"`).
 //!
+//! **Unlike Lua,** new-line characters/sequences in strings are kept _as-is_, and not converted to
+//! their platform-specific representation.
+//!
 //! ### Tables
 //!
 //! Lua tables are used for both lists and maps.
@@ -189,8 +201,10 @@
 //!
 //! #### Tables as structs
 //!
-//! When deserialising a table as a `struct`, all keys must be strings or
+//! When deserialising a table as a `struct`, all keys must be valid [RFC 3629 strings](#strings) or
 //! [Lua identifiers][LuaTableEntry::NameValue].
+//!
+//! Unicode identifiers (`LUA_UCID`) and other locale-specific identifiers are not supported.
 //!
 //! [Serde does not support numeric keys in structs][serde-num-keys].
 //!
@@ -216,6 +230,9 @@
 //! * **Luau** also adds type annotations, binary integer literals, separators for all integer
 //!   literals and string interpolation. None of these features are supported by `serde_luaq`.
 //!
+//! * **Ravi** adds type annotations and some other language features, which aren't supported by
+//!   `serde_luaq`.
+//!
 //! ## Maximum table depth
 //!
 //! The maximum table depth argument (`max_depth`) controls how deeply nested a table can be before
@@ -238,15 +255,20 @@
 //! }
 //! ```
 //!
-//! **Warning:** setting this value too high allows a heavily-nested table to cause your program
+//! This is roughly equivalent to Lua's `LUAI_MAXCCALLS` build option, which counts many other
+//! nested lexical elements which `serde_luaq` doesn't support (like code blocks and parentheses).
+//!
+//! <div class="warning">
+//!
+//! **Warning:** setting `max_depth` too high allows a heavily-nested table to cause your program
 //! [to overflow its stack and crash][stackoverflow]. What is "too high" depends on your platform
 //! and where you call `serde_luaq` in your program.
 //!
 //! Setting `max_depth` to `0` disables support for tables, _even empty tables_.
 //!
-//! This is roughly equivalent to Lua's `LUAI_MAXCCALLS` build option, which counts many other
-//! nested lexical elements which `serde_luaq` doesn't support (like code blocks and parentheses).
+//! </div>
 //!
+//! [comma]: https://github.com/lua/lua/blob/104b0fc7008b1f6b7d818985fbbad05cd37ee654/testes/literals.lua#L298-L300
 //! [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
 //! [`peg`]: https://docs.rs/peg/latest/peg/
 //! [Serde]: https://serde.rs/
