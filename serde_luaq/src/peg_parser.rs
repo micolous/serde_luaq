@@ -411,6 +411,12 @@ peg::parser! {
                 longer_string(4) /
                 longer_string(5)
 
+        rule boolean() -> bool
+            = (
+                "true" { true } /
+                "false" { false }
+            )
+
         /// Parse a bare Lua value expression as a [`LuaValue`].
         ///
         /// The value _may_ be preceeded or followed by whitespace.
@@ -431,8 +437,7 @@ peg::parser! {
         pub rule lua_value(max_depth: u16) -> LuaValue<'input>
             = _ v:(
                 "nil" { LuaValue::Nil } /
-                "true" { LuaValue::Boolean(true) } /
-                "false" { LuaValue::Boolean(false) } /
+                b:boolean() { LuaValue::Boolean(b) } /
                 n:numbers() { LuaValue::Number(n) } /
                 s:string() { LuaValue::String(s) } /
                 t:table(max_depth) { LuaValue::Table(t) } /
@@ -441,23 +446,38 @@ peg::parser! {
 
         rule table_entry(max_depth: u16) -> LuaTableEntry<'input>
             = _ v:(
+                // foo = "bar"
+                key:identifier() _ "=" _ val:lua_value(max_depth)
+                {
+                    LuaTableEntry::NameValue(Box::new((Cow::Borrowed(key), val)))
+                } /
+
+                // nil
+                "nil" {
+                    LuaTableEntry::NilValue
+                } /
+
+                // true or false
+                val:boolean() {
+                    LuaTableEntry::BooleanValue(val)
+                } /
+
+                // 1234
+                val:numbers() {
+                    LuaTableEntry::NumberValue(val)
+                } /
+
                 // "foo"
                 val:lua_value(max_depth)
                 {
-                    LuaTableEntry::Value(val)
+                    LuaTableEntry::Value(Box::new(val))
                 } /
 
                 // ["foo"]="bar"
                 // [1234]="bar"
                 "[" key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth)
                 {
-                    LuaTableEntry::KeyValue(key, val)
-                } /
-
-                // foo = "bar"
-                key:identifier() _ "=" _ val:lua_value(max_depth)
-                {
-                    LuaTableEntry::NameValue(Cow::Borrowed(key), val)
+                    LuaTableEntry::KeyValue(Box::new((key, val)))
                 } /
 
                 expected!("Lua table entry")

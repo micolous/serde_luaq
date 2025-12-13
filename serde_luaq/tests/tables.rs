@@ -1,7 +1,7 @@
 mod common;
 
 use crate::common::{check, should_error, MAX_DEPTH};
-use serde_luaq::{lua_value, script, LuaTableEntry, LuaValue};
+use serde_luaq::{lua_value, script, LuaNumber, LuaTableEntry, LuaValue};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
@@ -17,18 +17,18 @@ fn simple_table() -> Result {
         br#"{["int"]=1,["seq"]={"a", "b", x3yz = 0x12, ["foo"] = "bar", [5] = 42, [0xa] = 3.14}}"#;
 
     let expected = LuaValue::Table(vec![
-        LuaTableEntry::KeyValue(b"int".into(), LuaValue::integer(1)),
-        LuaTableEntry::KeyValue(
+        LuaTableEntry::KeyValue(Box::new((b"int".into(), LuaValue::integer(1)))),
+        LuaTableEntry::KeyValue(Box::new((
             b"seq".into(),
             LuaValue::Table(vec![
-                LuaTableEntry::Value(LuaValue::String(b"a".into())),
-                LuaTableEntry::Value(LuaValue::String(b"b".into())),
-                LuaTableEntry::NameValue("x3yz".into(), 0x12.into()),
-                LuaTableEntry::KeyValue(b"foo".into(), b"bar".into()),
-                LuaTableEntry::KeyValue(5.into(), 42.into()),
-                LuaTableEntry::KeyValue(0xa.into(), 3.14.into()),
+                LuaTableEntry::Value(Box::new(LuaValue::String(b"a".into()))),
+                LuaTableEntry::Value(Box::new(LuaValue::String(b"b".into()))),
+                LuaTableEntry::NameValue(Box::new(("x3yz".into(), 0x12.into()))),
+                LuaTableEntry::KeyValue(Box::new((b"foo".into(), b"bar".into()))),
+                LuaTableEntry::KeyValue(Box::new((5.into(), 42.into()))),
+                LuaTableEntry::KeyValue(Box::new((0xa.into(), 3.14.into()))),
             ]),
-        ),
+        ))),
     ]);
 
     let actual = lua_value(data, MAX_DEPTH)?;
@@ -68,12 +68,12 @@ fn simple_table() -> Result {
         (
             "seq",
             LuaValue::Table(vec![
-                LuaTableEntry::Value(LuaValue::String(b"a".into())),
-                LuaTableEntry::Value(LuaValue::String(b"b".into())),
-                LuaTableEntry::NameValue("x3yz".into(), 0x12.into()),
-                LuaTableEntry::KeyValue(b"foo".into(), b"bar".into()),
-                LuaTableEntry::KeyValue(5.into(), 42.into()),
-                LuaTableEntry::KeyValue(0xa.into(), 3.14.into()),
+                LuaValue::String(b"a".into()).into(),
+                LuaValue::String(b"b".into()).into(),
+                LuaTableEntry::NameValue(Box::new(("x3yz".into(), 0x12.into()))),
+                LuaTableEntry::KeyValue(Box::new((b"foo".into(), b"bar".into()))),
+                LuaTableEntry::KeyValue(Box::new((5.into(), 42.into()))),
+                LuaTableEntry::KeyValue(Box::new((0xa.into(), 3.14.into()))),
             ]),
         ),
     ];
@@ -95,21 +95,41 @@ fn tables() {
     check(b, LuaValue::Table(vec![]));
 
     // Object containing nil
-    let b = b"{nil}";
-    check(b, LuaValue::Table(vec![LuaValue::Nil.into()]));
+    let b = b"{nil, true, false}";
+    check(
+        b,
+        LuaValue::Table(vec![LuaValue::Nil.into(), true.into(), false.into()]),
+    );
+
+    // Keys with booleanish names
+    let b = b"{nil, nilth = 1, true, truer = 2, false, falsey = 3}";
+    check(
+        b,
+        LuaValue::Table(vec![
+            LuaTableEntry::NilValue,
+            LuaTableEntry::NameValue(Box::new(("nilth".into(), LuaValue::integer(1)))),
+            LuaTableEntry::BooleanValue(true),
+            LuaTableEntry::NameValue(Box::new(("truer".into(), LuaValue::integer(2)))),
+            LuaTableEntry::BooleanValue(false),
+            LuaTableEntry::NameValue(Box::new(("falsey".into(), LuaValue::integer(3)))),
+        ]),
+    );
 
     // Example on https://www.lua.org/manual/5.4/manual.html#3.4.9, without function calls
     let b = b"{ [9999] = \"g\"; 'x', \"y\"; x = 1, 9999, [30] = 23; 45 }";
     check(
         b,
         LuaValue::Table(vec![
-            LuaTableEntry::KeyValue(LuaValue::integer(9999), LuaValue::String(b"g".into())),
+            LuaTableEntry::KeyValue(Box::new((
+                LuaValue::integer(9999),
+                LuaValue::String(b"g".into()),
+            ))),
             LuaValue::String(b"x".into()).into(),
             LuaValue::String(b"y".into()).into(),
-            LuaTableEntry::NameValue("x".into(), LuaValue::integer(1)),
-            LuaTableEntry::Value(LuaValue::integer(9999)),
-            LuaTableEntry::KeyValue(LuaValue::integer(30), LuaValue::integer(23)),
-            LuaTableEntry::Value(LuaValue::integer(45)),
+            LuaTableEntry::NameValue(Box::new(("x".into(), LuaValue::integer(1)))),
+            LuaNumber::Integer(9999).into(),
+            LuaTableEntry::KeyValue(Box::new((LuaValue::integer(30), LuaValue::integer(23)))),
+            LuaNumber::Integer(45).into(),
         ]),
     );
 }
@@ -126,29 +146,39 @@ fn recursion() -> Result {
 
     check(
         b,
-        LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
-            LuaTableEntry::Value(LuaValue::Table(vec![LuaTableEntry::Value(
-                LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
-                    LuaTableEntry::Value(LuaValue::Table(vec![LuaTableEntry::Value(
-                        LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
-                            LuaTableEntry::Value(LuaValue::Table(vec![LuaTableEntry::Value(
-                                LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::Table(vec![
-                                    LuaTableEntry::Value(LuaValue::Table(vec![
-                                        LuaTableEntry::Value(LuaValue::Table(vec![
-                                            LuaTableEntry::Value(LuaValue::Table(vec![
-                                                LuaTableEntry::Value(LuaValue::Table(vec![
-                                                    LuaTableEntry::Value(LuaValue::Table(vec![])),
-                                                ])),
-                                            ])),
-                                        ])),
-                                    ])),
-                                ]))]),
-                            )])),
-                        ]))]),
-                    )])),
-                ]))]),
-            )])),
-        ]))]),
+        LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+            LuaTableEntry::Value(Box::new(LuaValue::Table(vec![LuaTableEntry::Value(
+                Box::new(LuaValue::Table(vec![LuaTableEntry::Value(Box::new(
+                    LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                        LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                            LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                                LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                                    LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                                        LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                                            LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                                                LuaTableEntry::Value(Box::new(LuaValue::Table(
+                                                    vec![LuaTableEntry::Value(Box::new(
+                                                        LuaValue::Table(vec![
+                                                            LuaTableEntry::Value(Box::new(
+                                                                LuaValue::Table(vec![
+                                                                    LuaTableEntry::Value(Box::new(
+                                                                        LuaValue::Table(vec![]),
+                                                                    )),
+                                                                ]),
+                                                            )),
+                                                        ]),
+                                                    ))],
+                                                ))),
+                                            ]))),
+                                        ]))),
+                                    ]))),
+                                ]))),
+                            ]))),
+                        ]))),
+                    ])))]),
+                ))])),
+            )]))),
+        ])))]),
     );
 
     let b = b"{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}";
@@ -170,29 +200,31 @@ fn recursion() -> Result {
 fn long_string_tables() -> Result {
     // When a long string is used as a table key, there must be a space before
     // the long string.
-    let expected = LuaValue::Table(vec![LuaTableEntry::KeyValue(
+    let expected = LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
         LuaValue::String(b"a".into()),
         LuaValue::String(b"b".into()),
-    )]);
+    )))]);
     check(b"{[ [[a]]]=[[b]]}", &expected);
     check(b"{[ [=[a]=]]=[[b]]}", &expected);
     check(b"{[ [[a]]] = [[b]]}", &expected);
     check(b"{[ [[a]] ] = [[b]]}", &expected);
 
     // Deceptive syntax
-    let expected = LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::String(b"[a".into()))]);
+    let expected = LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::String(
+        b"[a".into(),
+    )))]);
     check(b"{[[[a]]}", &expected);
     check(b"{[=[[a]=]}", &expected);
 
-    let expected = LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::String(
+    let expected = LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::String(
         b"=[a]=".into(),
-    ))]);
+    )))]);
     check(b"{[[=[a]=]]}", &expected);
     check(b"{[==[=[a]=]==]}", &expected);
 
-    let expected = LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::String(
+    let expected = LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::String(
         b"[a] = [[foo".into(),
-    ))]);
+    )))]);
     check(b"{[[[a] = [[foo]]}", &expected);
     check(b"{[=[[a] = [[foo]=]}", &expected);
 

@@ -86,157 +86,157 @@ fn keywords() -> Result {
 
     // Keywords used as table key in strings should be accepted.
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"and".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"and\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"break".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"break\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"do".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"do\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"else".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"else\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"elseif".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"elseif\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"end".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"end\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"false".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"false\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"for".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"for\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"function".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"function\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"goto".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"goto\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"if".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"if\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"in".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"in\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"local".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"local\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"nil".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"nil\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"not".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"not\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"or".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"or\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"repeat".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"repeat\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"return".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"return\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"then".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"then\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"true".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"true\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"until".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"until\"] = true}", MAX_DEPTH)?,
     );
     assert_eq!(
-        LuaValue::Table(vec![LuaTableEntry::KeyValue(
+        LuaValue::Table(vec![LuaTableEntry::KeyValue(Box::new((
             b"while".into(),
             LuaValue::Boolean(true)
-        ),]),
+        ))),]),
         lua_value(b"{[\"while\"] = true}", MAX_DEPTH)?,
     );
 
