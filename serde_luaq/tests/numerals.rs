@@ -1,7 +1,7 @@
 //! Numeral literal tests
 mod common;
 
-use crate::common::check;
+use crate::common::{check, should_error};
 use serde_luaq::LuaValue;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -64,6 +64,10 @@ fn decimal_integers() {
         b"-179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137216",
         LuaValue::float(f64::NEG_INFINITY),
     );
+
+    // We don't support locale-specific integers
+    should_error(b"3,14");
+    should_error(b".4,3");
 }
 
 /// Hex integer values
@@ -180,6 +184,8 @@ fn hex_floats() {
     // with a decimal exponent.
     should_error(b"0xE+1");
     should_error(b"0xE-1");
+    should_error(b"0xe-");
+    should_error(b"0xep-p");
 
     check(b"0x1.fp10", LuaValue::float(1984.));
 

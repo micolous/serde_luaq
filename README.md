@@ -153,6 +153,8 @@ something like [`mlua`][mlua], which links to `liblua`, and also provides `serde
 
 ## Known users of Lua serialisation
 
+- [Programming in Lua][pil12.1.1] has a function that dumps a Lua table into a file as a script.
+
 - [SaveData][]: Love2D library, emits a `return` statement which is loaded by evaluating the string.
 
 - [Balatro][] (`engine/string_packer.lua`) is a modified version of `SaveData` that also compresses
@@ -161,13 +163,26 @@ something like [`mlua`][mlua], which links to `liblua`, and also provides `serde
 - World of Warcraft: addon state, written to `WTF/{Account,SavedVariables}/**/*.lua` as scripts that
   set variables.
 
+## License
+
+This project is dual-licensed under the terms of the Apache-2.0 and MIT licenses.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
+this project by you, as defined in the Apache-2.0 license, shall be dual licensed under the terms of
+the Apache-2.0 and MIT licenses, without any additional terms or conditions. 
+
+`serde_luaq` does not include any copy of Lua itself. To ensure maximal compatibility with Lua's
+syntax, some of its test cases are derived from [Lua's test suite][luatest].
+
 [Balatro]: https://www.playbalatro.com/
 [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
 [lua3.1]: https://www.lua.org/manual/5.4/manual.html#3.1
 [lua3.4.9]: https://www.lua.org/manual/5.4/manual.html#3.4.9
 [lua8]: https://www.lua.org/manual/5.4/manual.html#8
+[luatest]: https://github.com/lua/lua/tree/master/testes
 [luavalue]: https://docs.rs/serde_luaq/latest/serde_luaq/enum.LuaValue.html
 [mlua]: https://github.com/mlua-rs/mlua
 [peg]: https://docs.rs/peg/latest/peg/
+[pil12.1.1]: https://www.lua.org/pil/12.1.1.html
 [SaveData]: https://github.com/BroccoliRaab/SaveData
 [serde]: https://serde.rs/
