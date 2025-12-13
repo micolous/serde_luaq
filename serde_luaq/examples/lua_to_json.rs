@@ -4,9 +4,11 @@ use serde_luaq::{
     lua_value, return_statement, script, to_json_value, JsonConversionOptions, LuaValue,
 };
 use std::{
+    alloc::{GlobalAlloc, Layout, System},
     fs::File,
     io::{stdout, BufWriter, Read, Write},
     path::PathBuf,
+    sync::atomic::{AtomicIsize, Ordering::Relaxed},
 };
 
 /// Default maximum Lua file size limit.
@@ -74,10 +76,44 @@ struct Args {
     /// Convert the Lua value to a JSON object, but don't serialise it.
     #[arg(long)]
     no_output: bool,
+
+    // Print memory usage stats to stderr.
+    #[arg(long)]
+    memory_stats: bool,
 }
+
+// From https://doc.rust-lang.org/std/alloc/struct.System.html
+// Modified to use `isize` instead of `usize` so we can track memory usage
+// decreases more easily.
+struct Counter;
+static ALLOCATED: AtomicIsize = AtomicIsize::new(0);
+unsafe impl GlobalAlloc for Counter {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let ret = unsafe { System.alloc(layout) };
+        if !ret.is_null() {
+            ALLOCATED.fetch_add(layout.size() as isize, Relaxed);
+        }
+        ret
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        unsafe {
+            System.dealloc(ptr, layout);
+        }
+        ALLOCATED.fetch_sub(layout.size() as isize, Relaxed);
+    }
+}
+
+#[global_allocator]
+static A: Counter = Counter;
 
 fn main() -> Result {
     let args = Args::parse();
+    let start_bytes = ALLOCATED.load(Relaxed);
+    if args.memory_stats {
+        eprintln!("Initial memory usage: {start_bytes} bytes");
+    }
+
     let opts = JsonConversionOptions {
         lossy_string: args.lossy_string,
         ..Default::default()
@@ -97,25 +133,46 @@ fn main() -> Result {
     let mut buf = Vec::with_capacity(size);
     f.read_to_end(&mut buf)?;
 
+    let load_lua_bytes = ALLOCATED.load(Relaxed) - start_bytes;
+    if args.memory_stats {
+        eprintln!("Reading Lua added: {load_lua_bytes} bytes");
+    }
+
     let lua_value: LuaValue<'_> = match args.format {
         LuaInputFormat::Script => script(&buf, args.max_depth)?.into_iter().collect(),
         LuaInputFormat::Object => lua_value(&buf, args.max_depth)?,
         LuaInputFormat::Return => return_statement(&buf, args.max_depth)?,
     };
 
+    let parse_lua_bytes = ALLOCATED.load(Relaxed) - load_lua_bytes;
+    if args.memory_stats {
+        eprintln!("Parsing Lua added: {parse_lua_bytes} bytes");
+    }
+
     if args.no_json {
+        eprintln!("--no_json set, not converting to JSON!");
+        drop(lua_value);
         return Ok(());
     }
 
     let json_value = to_json_value(lua_value, &opts)?;
 
+    let json_bytes = ALLOCATED.load(Relaxed) - parse_lua_bytes;
+    if args.memory_stats {
+        eprintln!("Converting to JSON added: {json_bytes} bytes");
+    }
+
     if args.no_output {
+        eprintln!("--no_output set, not outputting the result!");
+        drop(json_value);
         return Ok(());
     }
 
+    let mut termout = false;
     let f: Box<dyn Write> = if let Some(output) = args.output {
         Box::new(File::options().create_new(true).write(true).open(output)?)
     } else {
+        termout = true;
         Box::new(stdout())
     };
     let f = BufWriter::new(f);
@@ -124,6 +181,10 @@ fn main() -> Result {
         to_writer_pretty(f, &json_value)?;
     } else {
         to_writer(f, &json_value)?;
+    }
+
+    if termout {
+        println!();
     }
 
     Ok(())
