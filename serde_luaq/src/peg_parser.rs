@@ -373,15 +373,9 @@ peg::parser! {
             }
 
         // TODO: find a way to make this work with arbitrary levels.
-        rule longer_string(level: usize, long_string_needs_whitespace: bool, ws: &[u8]) -> Cow<'input, [u8]>
+        rule longer_string(level: usize) -> Cow<'input, [u8]>
             =
-                ("[" "="*<{level}> "[" {?
-                    if ws.is_empty() && long_string_needs_whitespace {
-                        Err("longer string must be preceeded with whitespace")
-                    } else {
-                        Ok(())
-                    }
-                })
+                "[" "="*<{level}> "["
                 linebreak()?
                 v:$(
                     (
@@ -392,15 +386,9 @@ peg::parser! {
                 "]" "="*<{level}> "]"
                 { v.map(Cow::Borrowed).unwrap_or(EMPTY) }
 
-        rule long_string(long_string_needs_whitespace: bool, ws: &[u8]) -> Cow<'input, [u8]>
+        rule long_string() -> Cow<'input, [u8]>
             =
-                ("[[" {?
-                    if ws.is_empty() && long_string_needs_whitespace {
-                        Err("long string must be preceeded with whitespace")
-                    } else {
-                        Ok(())
-                    }
-                })
+                "[["
                 linebreak()?
                 v:$(
                     (
@@ -412,16 +400,16 @@ peg::parser! {
                 { v.map(Cow::Borrowed).unwrap_or(EMPTY) }
 
         /// Parses a string.
-        rule string(long_string_needs_whitespace: bool, ws: &[u8]) -> Cow<'input, [u8]>
+        rule string() -> Cow<'input, [u8]>
             =
                 single_quoted_string() /
                 double_quoted_string() /
-                long_string(long_string_needs_whitespace, ws) /
-                longer_string(1, long_string_needs_whitespace, ws) /
-                longer_string(2, long_string_needs_whitespace, ws) /
-                longer_string(3, long_string_needs_whitespace, ws) /
-                longer_string(4, long_string_needs_whitespace, ws) /
-                longer_string(5, long_string_needs_whitespace, ws)
+                long_string() /
+                longer_string(1) /
+                longer_string(2) /
+                longer_string(3) /
+                longer_string(4) /
+                longer_string(5)
 
         /// Parse a bare Lua value expression as a [`LuaValue`].
         ///
@@ -441,26 +429,27 @@ peg::parser! {
         ///
         /// For more information about Lua type conversion, see [`LuaValue`].
         pub rule lua_value(max_depth: u16) -> LuaValue<'input>
-            = lua_value_inner(max_depth, false)
-
-        pub rule lua_value_inner(max_depth: u16, long_string_needs_whitespace: bool) -> LuaValue<'input>
-            =
-                ws:$(_)
-                v:(
-                    "nil" { LuaValue::Nil } /
-                    "true" { LuaValue::Boolean(true) } /
-                    "false" { LuaValue::Boolean(false) } /
-                    n:numbers() { LuaValue::Number(n) } /
-                    s:string(long_string_needs_whitespace, ws) { LuaValue::String(s) } /
-                    t:table(max_depth) { LuaValue::Table(t) } /
-                    expected!("Lua value")
-                ) _ { v }
+            = _ v:(
+                "nil" { LuaValue::Nil } /
+                "true" { LuaValue::Boolean(true) } /
+                "false" { LuaValue::Boolean(false) } /
+                n:numbers() { LuaValue::Number(n) } /
+                s:string() { LuaValue::String(s) } /
+                t:table(max_depth) { LuaValue::Table(t) } /
+                expected!("Lua value")
+            ) _ { v }
 
         rule table_entry(max_depth: u16) -> LuaTableEntry<'input>
             = _ v:(
+                // "foo"
+                val:lua_value(max_depth)
+                {
+                    LuaTableEntry::Value(val)
+                } /
+
                 // ["foo"]="bar"
                 // [1234]="bar"
-                "[" key:lua_value_inner(max_depth, true) _ "]" _ "=" _ val:lua_value_inner(max_depth, false)
+                "[" key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth)
                 {
                     LuaTableEntry::KeyValue(key, val)
                 } /
@@ -469,12 +458,6 @@ peg::parser! {
                 key:identifier() _ "=" _ val:lua_value(max_depth)
                 {
                     LuaTableEntry::NameValue(Cow::Borrowed(key), val)
-                } /
-
-                // "foo"
-                val:lua_value(max_depth)
-                {
-                    LuaTableEntry::Value(val)
                 } /
 
                 expected!("Lua table entry")
