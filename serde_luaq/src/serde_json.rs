@@ -134,11 +134,11 @@ pub fn to_json_value(
 
             for entry in items {
                 match entry {
-                    LuaTableEntry::KeyValue(k, v) => {
+                    LuaTableEntry::KeyValue(b) => {
                         // Switched to an object, move any existing entries from the array.
                         move_array_to_object(&mut array, &mut array_next_idx, &mut object);
 
-                        let k = match k {
+                        let k = match b.0 {
                             LuaValue::String(k) => if opts.lossy_string {
                                 from_utf8_cow_lossy(k)
                             } else {
@@ -153,23 +153,23 @@ pub fn to_json_value(
                             }
                         };
 
-                        object.insert(k, to_json_value(v, opts)?);
+                        object.insert(k, to_json_value(b.1, opts)?);
                     }
 
-                    LuaTableEntry::NameValue(k, v) => {
+                    LuaTableEntry::NameValue(b) => {
                         // Switched to an object, move any existing entries from the array.
                         move_array_to_object(&mut array, &mut array_next_idx, &mut object);
 
-                        object.insert(k.to_string(), to_json_value(v, opts)?);
+                        object.insert(b.0.to_string(), to_json_value(b.1, opts)?);
                     }
 
                     LuaTableEntry::Value(v) => {
                         if object.is_empty() {
                             // We have no object yet, push into array
-                            array.push(to_json_value(v, opts)?);
+                            array.push(to_json_value(*v, opts)?);
                         } else {
                             // We have an object, use the next key
-                            object.insert(array_next_idx.to_string(), to_json_value(v, opts)?);
+                            object.insert(array_next_idx.to_string(), to_json_value(*v, opts)?);
                             array_next_idx += 1;
                         }
                     }

@@ -444,20 +444,20 @@ peg::parser! {
                 // "foo"
                 val:lua_value(max_depth)
                 {
-                    LuaTableEntry::Value(val)
+                    LuaTableEntry::Value(Box::new(val))
                 } /
 
                 // ["foo"]="bar"
                 // [1234]="bar"
                 "[" key:lua_value(max_depth) _ "]" _ "=" _ val:lua_value(max_depth)
                 {
-                    LuaTableEntry::KeyValue(key, val)
+                    LuaTableEntry::KeyValue(Box::new((key, val)))
                 } /
 
                 // foo = "bar"
                 key:identifier() _ "=" _ val:lua_value(max_depth)
                 {
-                    LuaTableEntry::NameValue(Cow::Borrowed(key), val)
+                    LuaTableEntry::NameValue(Box::new((Cow::Borrowed(key), val)))
                 } /
 
                 expected!("Lua table entry")

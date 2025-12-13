@@ -11,7 +11,7 @@ use std::{borrow::Cow, str::from_utf8};
 #[derive(Debug, Clone, PartialEq)]
 pub enum LuaTableEntry<'a> {
     /// Table entry in the form: `["foo"] = "bar"` or `[123] = "bar"`
-    KeyValue(LuaValue<'a>, LuaValue<'a>),
+    KeyValue(Box<(LuaValue<'a>, LuaValue<'a>)>),
 
     /// Table entry in the form: `foo = "bar"`
     ///
@@ -25,14 +25,14 @@ pub enum LuaTableEntry<'a> {
     ///
     /// This is represented as a `str`, as these are valid RFC 3629 UTF-8 on
     /// Lua 5.2 and later with default build settings (`LUA_UCID = 0`).
-    NameValue(Cow<'a, str>, LuaValue<'a>),
+    NameValue(Box<(Cow<'a, str>, LuaValue<'a>)>),
 
     /// Bare table entry without a key: `"bar"`
     ///
     /// > fields of the form `exp` are equivalent to `[i] = exp`, where `i`
     /// > are consecutive numerical integers, starting with 1. Fields in the
     /// > other formats do not affect this counting.
-    Value(LuaValue<'a>),
+    Value(Box<LuaValue<'a>>),
 }
 
 impl<'a> LuaTableEntry<'a> {
@@ -53,8 +53,8 @@ impl<'a> LuaTableEntry<'a> {
     /// ```
     pub fn key(&'a self) -> Option<LuaValue<'a>> {
         match self {
-            LuaTableEntry::KeyValue(key, _) => Some(key.clone()),
-            LuaTableEntry::NameValue(key, _) => Some(LuaValue::String(to_utf8_cow(key.clone()))),
+            LuaTableEntry::KeyValue(b) => Some(b.0.clone()),
+            LuaTableEntry::NameValue(b) => Some(LuaValue::String(to_utf8_cow(b.0.clone()))),
             LuaTableEntry::Value(_) => None,
         }
     }
@@ -72,18 +72,18 @@ impl<'a> LuaTableEntry<'a> {
     /// ```
     pub fn value(&'a self) -> &'a LuaValue<'a> {
         match self {
-            LuaTableEntry::KeyValue(_, value)
-            | LuaTableEntry::NameValue(_, value)
-            | LuaTableEntry::Value(value) => value,
+            LuaTableEntry::KeyValue(b) => &b.1,
+            LuaTableEntry::NameValue(b) => &b.1,
+            LuaTableEntry::Value(value) => value,
         }
     }
 
     /// Move the value out of the table entry.
     pub fn move_value(self) -> LuaValue<'a> {
         match self {
-            LuaTableEntry::KeyValue(_, value)
-            | LuaTableEntry::NameValue(_, value)
-            | LuaTableEntry::Value(value) => value,
+            LuaTableEntry::KeyValue(b) => b.1,
+            LuaTableEntry::NameValue(b) => b.1,
+            LuaTableEntry::Value(value) => *value,
         }
     }
 }
@@ -100,8 +100,13 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for (Cow<'a, [u8]>, LuaValue<'a>) {
     /// into a `HashMap<&[u8], LuaValue>`.
     fn try_from(value: LuaTableEntry<'a>) -> Result<Self, Self::Error> {
         match value {
-            LuaTableEntry::KeyValue(LuaValue::String(k), v) => Ok((k, v)),
-            LuaTableEntry::NameValue(k, v) => Ok((to_utf8_cow(k), v)),
+            LuaTableEntry::KeyValue(b) if matches!(&b.0, LuaValue::String(_)) => {
+                let LuaValue::String(k) = b.0 else {
+                    unreachable!();
+                };
+                Ok((k, b.1))
+            }
+            LuaTableEntry::NameValue(b) => Ok((to_utf8_cow(b.0), b.1)),
             other => Err(other),
         }
     }
@@ -119,15 +124,21 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for (Cow<'a, str>, LuaValue<'a>) {
     /// [`String`]: LuaValue::String
     fn try_from(value: LuaTableEntry<'a>) -> Result<Self, Self::Error> {
         match value {
-            LuaTableEntry::KeyValue(LuaValue::String(k), v) => {
+            LuaTableEntry::KeyValue(b) if matches!(&b.0, LuaValue::String(_)) => {
+                let LuaValue::String(k) = b.0 else {
+                    unreachable!();
+                };
                 match from_utf8_cow(k) {
-                    Ok(k) => Ok((k, v)),
+                    Ok(k) => Ok((k, b.1)),
 
                     // Error, return the original value back
-                    Err((_, k)) => Err(LuaTableEntry::KeyValue(LuaValue::String(k), v)),
+                    Err((_, k)) => Err(LuaTableEntry::KeyValue(Box::new((
+                        LuaValue::String(k),
+                        b.1,
+                    )))),
                 }
             }
-            LuaTableEntry::NameValue(k, v) => Ok((k, v)),
+            LuaTableEntry::NameValue(b) => Ok(*b),
             other => Err(other),
         }
     }
@@ -141,9 +152,9 @@ impl<'a> From<(&'a [u8], LuaValue<'a>)> for LuaTableEntry<'a> {
     /// represented as a [`LuaTableEntry::NameValue`].
     fn from((k, v): (&'a [u8], LuaValue<'a>)) -> Self {
         if valid_lua_identifier(k) {
-            Self::NameValue(from_utf8(k).unwrap().into(), v)
+            Self::NameValue(Box::new((from_utf8(k).unwrap().into(), v)))
         } else {
-            Self::KeyValue(LuaValue::String(k.into()), v)
+            Self::KeyValue(Box::new((LuaValue::String(k.into()), v)))
         }
     }
 }
@@ -156,9 +167,9 @@ impl<'a, const N: usize> From<(&'a [u8; N], LuaValue<'a>)> for LuaTableEntry<'a>
     /// represented as a [`LuaTableEntry::NameValue`].
     fn from((k, v): (&'a [u8; N], LuaValue<'a>)) -> Self {
         if valid_lua_identifier(k) {
-            Self::NameValue(from_utf8(k).unwrap().into(), v)
+            Self::NameValue(Box::new((from_utf8(k).unwrap().into(), v)))
         } else {
-            Self::KeyValue(LuaValue::String(k.into()), v)
+            Self::KeyValue(Box::new((LuaValue::String(k.into()), v)))
         }
     }
 }
@@ -171,9 +182,9 @@ impl<'a> From<(Vec<u8>, LuaValue<'a>)> for LuaTableEntry<'a> {
     /// represented as a [`LuaTableEntry::NameValue`].
     fn from((k, v): (Vec<u8>, LuaValue<'a>)) -> Self {
         if valid_lua_identifier(&k) {
-            Self::NameValue(String::from_utf8(k).unwrap().into(), v)
+            Self::NameValue(Box::new((String::from_utf8(k).unwrap().into(), v)))
         } else {
-            Self::KeyValue(LuaValue::String(k.into()), v)
+            Self::KeyValue(Box::new((LuaValue::String(k.into()), v)))
         }
     }
 }
@@ -186,9 +197,9 @@ impl<'a> From<(Cow<'a, [u8]>, LuaValue<'a>)> for LuaTableEntry<'a> {
     /// represented as a [`LuaTableEntry::NameValue`].
     fn from((k, v): (Cow<'a, [u8]>, LuaValue<'a>)) -> Self {
         if valid_lua_identifier(&k) {
-            Self::NameValue(from_utf8_cow(k).unwrap(), v)
+            Self::NameValue(Box::new((from_utf8_cow(k).unwrap(), v)))
         } else {
-            Self::KeyValue(LuaValue::String(k), v)
+            Self::KeyValue(Box::new((LuaValue::String(k), v)))
         }
     }
 }
@@ -201,9 +212,9 @@ impl<'a> From<(&'a str, LuaValue<'a>)> for LuaTableEntry<'a> {
     /// represented as a [`LuaTableEntry::NameValue`].
     fn from((k, v): (&'a str, LuaValue<'a>)) -> Self {
         if valid_lua_identifier(k.as_bytes()) {
-            Self::NameValue(k.into(), v)
+            Self::NameValue(Box::new((k.into(), v)))
         } else {
-            Self::KeyValue(LuaValue::String(k.as_bytes().into()), v)
+            Self::KeyValue(Box::new((LuaValue::String(k.as_bytes().into()), v)))
         }
     }
 }
@@ -216,9 +227,9 @@ impl<'a> From<(String, LuaValue<'a>)> for LuaTableEntry<'a> {
     /// represented as a [`LuaTableEntry::NameValue`].
     fn from((k, v): (String, LuaValue<'a>)) -> Self {
         if valid_lua_identifier(k.as_bytes()) {
-            Self::NameValue(k.into(), v)
+            Self::NameValue(Box::new((k.into(), v)))
         } else {
-            Self::KeyValue(LuaValue::String(k.into_bytes().into()), v)
+            Self::KeyValue(Box::new((LuaValue::String(k.into_bytes().into()), v)))
         }
     }
 }
@@ -231,9 +242,9 @@ impl<'a> From<(Cow<'a, str>, LuaValue<'a>)> for LuaTableEntry<'a> {
     /// represented as a [`LuaTableEntry::NameValue`].
     fn from((k, v): (Cow<'a, str>, LuaValue<'a>)) -> Self {
         if valid_lua_identifier(k.as_bytes()) {
-            Self::NameValue(k, v)
+            Self::NameValue(Box::new((k, v)))
         } else {
-            Self::KeyValue(LuaValue::String(to_utf8_cow(k)), v)
+            Self::KeyValue(Box::new((LuaValue::String(to_utf8_cow(k)), v)))
         }
     }
 }
@@ -248,7 +259,15 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for (i64, LuaValue<'a>) {
     /// into a `HashMap<i64, LuaValue>`.
     fn try_from(value: LuaTableEntry<'a>) -> Result<Self, Self::Error> {
         match value {
-            LuaTableEntry::KeyValue(LuaValue::Number(LuaNumber::Integer(k)), v) => Ok((k, v)),
+            LuaTableEntry::KeyValue(b)
+                if matches!(b.0, LuaValue::Number(LuaNumber::Integer(_))) =>
+            {
+                let LuaValue::Number(LuaNumber::Integer(k)) = b.0 else {
+                    unreachable!();
+                };
+
+                Ok((k, b.1))
+            }
             other => Err(other),
         }
     }
@@ -258,7 +277,7 @@ impl<'a> From<(i64, LuaValue<'a>)> for LuaTableEntry<'a> {
     /// Converts a `i64` key and [`LuaValue`] into a [`LuaTableEntry::KeyValue`]
     /// with [`LuaNumber::Integer`] key.
     fn from((k, v): (i64, LuaValue<'a>)) -> Self {
-        Self::KeyValue(k.into(), v)
+        Self::KeyValue(Box::new((k.into(), v)))
     }
 }
 
@@ -274,8 +293,15 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for (Option<i64>, LuaValue<'a>) {
     /// into a non-consecutive array of [`LuaValue`].
     fn try_from(value: LuaTableEntry<'a>) -> Result<Self, Self::Error> {
         match value {
-            LuaTableEntry::KeyValue(LuaValue::Number(LuaNumber::Integer(k)), v) => Ok((Some(k), v)),
-            LuaTableEntry::Value(v) => Ok((None, v)),
+            LuaTableEntry::KeyValue(b)
+                if matches!(b.0, LuaValue::Number(LuaNumber::Integer(_))) =>
+            {
+                let LuaValue::Number(LuaNumber::Integer(k)) = b.0 else {
+                    unreachable!();
+                };
+                Ok((Some(k), b.1))
+            }
+            LuaTableEntry::Value(b) => Ok((None, *b)),
             other => Err(other),
         }
     }
@@ -291,7 +317,7 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for LuaValue<'a> {
     /// into an array of [`LuaValue`].
     fn try_from(value: LuaTableEntry<'a>) -> Result<Self, Self::Error> {
         match value {
-            LuaTableEntry::Value(v) => Ok(v),
+            LuaTableEntry::Value(v) => Ok(*v),
             other => Err(other),
         }
     }
@@ -300,6 +326,6 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for LuaValue<'a> {
 impl<'a> From<LuaValue<'a>> for LuaTableEntry<'a> {
     /// Converts [`LuaValue`] into [`LuaTableEntry::Value`].
     fn from(value: LuaValue<'a>) -> Self {
-        Self::Value(value)
+        Self::Value(Box::new(value))
     }
 }
