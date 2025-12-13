@@ -190,6 +190,12 @@ fn long_string_tables() -> Result {
     check(b"{[[=[a]=]]}", &expected);
     check(b"{[==[=[a]=]==]}", &expected);
 
+    let expected = LuaValue::Table(vec![LuaTableEntry::Value(LuaValue::String(
+        b"[a] = [[foo".into(),
+    ))]);
+    check(b"{[[[a] = [[foo]]}", &expected);
+    check(b"{[=[[a] = [[foo]=]}", &expected);
+
     // These are rejected by Lua as syntax errors
     should_error(b"{[[[a]]] = [[b]]}");
     should_error(b"{[[[a]] ] = [[b]]}");
