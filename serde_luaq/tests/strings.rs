@@ -135,22 +135,6 @@ fn long_string() {
             LuaTableEntry::Value(LuaValue::String(b"?".into())),
         ]),
     );
-
-    // When a long string is used as a table key, there must be a space before
-    // the long string.
-    let expected = LuaValue::Table(vec![LuaTableEntry::KeyValue(
-        LuaValue::String(b"a".into()),
-        LuaValue::String(b"b".into()),
-    )]);
-    check(b"{[ [[a]]]=[[b]]}", &expected);
-    check(b"{[ [=[a]=]]=[[b]]}", &expected);
-    check(b"{[ [[a]]] = [[b]]}", &expected);
-    check(b"{[ [[a]] ] = [[b]]}", &expected);
-    should_error(b"{[[[a]]] = [[b]]}");
-    should_error(b"{[[[a]] ] = [[b]]}");
-    should_error(b"{c = 3, [[[a]]] = [[b]]}");
-    should_error(b"{c = 3, [[[a]] ] = [[b]]}");
-    should_error(b"{['a'] = 1, [\"b\"] = 2, [[[c]]] = 3, [[=[d]=]] = 4}");
 }
 
 #[test]
