@@ -4,7 +4,7 @@ use crate::common::MAX_DEPTH;
 use serde_json::json;
 use serde_luaq::{
     from_json_value, lua_value, to_json_value, JsonConversionError, JsonConversionOptions,
-    LuaTableEntry, LuaValue,
+    LuaNumber, LuaTableEntry, LuaValue,
 };
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -53,10 +53,10 @@ fn table_coersion() -> Result {
     );
     assert_eq!(
         LuaValue::Table(vec![
-            LuaTableEntry::Value(LuaValue::integer(1)),
-            LuaTableEntry::Value(LuaValue::integer(2)),
-            LuaTableEntry::Value(LuaValue::integer(3)),
-            LuaTableEntry::Value(LuaValue::integer(4)),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(1)),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(2)),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(3)),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(4)),
         ]),
         from_json_value(json!([1, 2, 3, 4]))?,
     );
@@ -79,10 +79,22 @@ fn table_coersion() -> Result {
     // JSON keys are always str, and all keys are not valid identifiers
     assert_eq!(
         LuaValue::Table(vec![
-            LuaTableEntry::KeyValue(LuaValue::String(b"1".into()), LuaValue::integer(1)),
-            LuaTableEntry::KeyValue(LuaValue::String(b"2".into()), LuaValue::integer(2)),
-            LuaTableEntry::KeyValue(LuaValue::String(b"3".into()), LuaValue::integer(3)),
-            LuaTableEntry::KeyValue(LuaValue::String(b"4".into()), LuaValue::integer(4)),
+            LuaTableEntry::KeyValue(Box::new((
+                LuaValue::String(b"1".into()),
+                LuaValue::integer(1)
+            ))),
+            LuaTableEntry::KeyValue(Box::new((
+                LuaValue::String(b"2".into()),
+                LuaValue::integer(2)
+            ))),
+            LuaTableEntry::KeyValue(Box::new((
+                LuaValue::String(b"3".into()),
+                LuaValue::integer(3)
+            ))),
+            LuaTableEntry::KeyValue(Box::new((
+                LuaValue::String(b"4".into()),
+                LuaValue::integer(4)
+            ))),
         ]),
         from_json_value(json!({"1": 1, "2": 2, "3": 3, "4": 4}))?,
     );
@@ -97,11 +109,14 @@ fn table_coersion() -> Result {
     // Valid identifiers should be NameValue
     assert_eq!(
         LuaValue::Table(vec![
-            LuaTableEntry::KeyValue(LuaValue::String(b"5".into()), LuaValue::integer(5)),
-            LuaTableEntry::NameValue("a".into(), LuaValue::integer(1)),
-            LuaTableEntry::NameValue("b".into(), LuaValue::integer(2)),
-            LuaTableEntry::NameValue("c".into(), LuaValue::integer(3)),
-            LuaTableEntry::NameValue("d".into(), LuaValue::integer(4)),
+            LuaTableEntry::KeyValue(Box::new((
+                LuaValue::String(b"5".into()),
+                LuaValue::integer(5)
+            ))),
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::integer(1)))),
+            LuaTableEntry::NameValue(Box::new(("b".into(), LuaValue::integer(2)))),
+            LuaTableEntry::NameValue(Box::new(("c".into(), LuaValue::integer(3)))),
+            LuaTableEntry::NameValue(Box::new(("d".into(), LuaValue::integer(4)))),
         ]),
         from_json_value(json!({"5": 5, "a": 1, "b": 2, "c": 3, "d": 4}))?,
     );

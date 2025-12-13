@@ -35,7 +35,7 @@ pub enum LuaTableEntry<'a> {
     Value(Box<LuaValue<'a>>),
 
     /// Bare numeric table entry without a key: `1234`.
-    /// 
+    ///
     /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
     /// for [`LuaNumber`][] literals that avoids an extra heap allocation.
     NumberValue(LuaNumber),
@@ -53,9 +53,9 @@ impl<'a> LuaTableEntry<'a> {
     /// ```rust
     /// use serde_luaq::{LuaValue, LuaTableEntry};
     ///
-    /// assert_eq!(Some(LuaValue::integer(1)), LuaTableEntry::KeyValue(LuaValue::integer(1), LuaValue::Boolean(true)).key());
-    /// assert_eq!(Some(b"foo".into()), LuaTableEntry::NameValue("foo".into(), LuaValue::Boolean(true)).key());
-    /// assert_eq!(None, LuaTableEntry::Value(LuaValue::Boolean(true)).key());
+    /// assert_eq!(Some(LuaValue::integer(1)), LuaTableEntry::KeyValue(Box::new((LuaValue::integer(1), LuaValue::Boolean(true)))).key());
+    /// assert_eq!(Some(b"foo".into()), LuaTableEntry::NameValue(Box::new(("foo".into(), LuaValue::Boolean(true)))).key());
+    /// assert_eq!(None, LuaTableEntry::Value(Box::new(LuaValue::Boolean(true))).key());
     /// ```
     pub fn key(&'a self) -> Option<LuaValue<'a>> {
         match self {
@@ -74,9 +74,24 @@ impl<'a> LuaTableEntry<'a> {
     /// ```rust
     /// use serde_luaq::{LuaValue, LuaTableEntry};
     ///
-    /// assert_eq!(&LuaValue::Boolean(true), LuaTableEntry::KeyValue(LuaValue::integer(1), LuaValue::Boolean(true)).value());
-    /// assert_eq!(&LuaValue::Boolean(true), LuaTableEntry::NameValue("foo".into(), LuaValue::Boolean(true)).value());
-    /// assert_eq!(&LuaValue::Boolean(true), LuaTableEntry::Value(LuaValue::Boolean(true)).value());
+    /// assert_eq!(
+    ///     &LuaValue::Boolean(true),
+    ///     LuaTableEntry::KeyValue(Box::new((
+    ///         LuaValue::integer(1),
+    ///         LuaValue::Boolean(true),
+    ///     ))).value().unwrap(),
+    /// );
+    /// assert_eq!(
+    ///     &LuaValue::Boolean(true),
+    ///     LuaTableEntry::NameValue(Box::new((
+    ///         "foo".into(),
+    ///         LuaValue::Boolean(true),
+    ///     ))).value().unwrap(),
+    /// );
+    /// assert_eq!(
+    ///     &LuaValue::Boolean(true),
+    ///     LuaTableEntry::Value(Box::new(LuaValue::Boolean(true))).value().unwrap(),
+    /// );
     /// ```
     pub fn value(&'a self) -> Option<&'a LuaValue<'a>> {
         match self {
@@ -88,7 +103,7 @@ impl<'a> LuaTableEntry<'a> {
     }
 
     /// Move the value out of the table entry.
-    /// 
+    ///
     /// For [`NumberValue`][LuaTableEntry::NumberValue], this wraps the entry in a [`LuaValue`][]
     /// before returning it.
     pub fn move_value(self) -> LuaValue<'a> {
@@ -98,6 +113,37 @@ impl<'a> LuaTableEntry<'a> {
             LuaTableEntry::Value(value) => *value,
             LuaTableEntry::NumberValue(value) => LuaValue::Number(value),
         }
+    }
+
+    /// Moves a [`LuaNumber`][] value out of the table entry.
+    ///
+    /// Returns [`None`][] if the contained value is not a [`LuaNumber`][].
+    pub fn move_number_value(self) -> Option<LuaNumber> {
+        match self {
+            LuaTableEntry::KeyValue(b) => {
+                if let LuaValue::Number(n) = b.1 {
+                    return Some(n);
+                }
+            }
+
+            LuaTableEntry::NameValue(b) => {
+                if let LuaValue::Number(n) = b.1 {
+                    return Some(n);
+                }
+            }
+
+            LuaTableEntry::Value(v) => {
+                if let LuaValue::Number(n) = *v {
+                    return Some(n);
+                }
+            }
+
+            LuaTableEntry::NumberValue(n) => {
+                return Some(n);
+            }
+        }
+
+        None
     }
 }
 
@@ -336,9 +382,19 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for LuaValue<'a> {
     }
 }
 
+impl From<LuaNumber> for LuaTableEntry<'_> {
+    /// Converts [`LuaNumber`] into [`LuaTableEntry::NumberValue`].
+    fn from(value: LuaNumber) -> Self {
+        Self::NumberValue(value)
+    }
+}
+
 impl<'a> From<LuaValue<'a>> for LuaTableEntry<'a> {
-    /// Converts [`LuaValue`] into [`LuaTableEntry::Value`].
+    /// Converts [`LuaValue`] into [`LuaTableEntry::Value`] or [`LuaTableEntry::NumberValue`].
     fn from(value: LuaValue<'a>) -> Self {
-        Self::Value(Box::new(value))
+        match value {
+            LuaValue::Number(n) => Self::NumberValue(n),
+            v => Self::Value(Box::new(v)),
+        }
     }
 }

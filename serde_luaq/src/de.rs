@@ -26,7 +26,7 @@ where
     let len = array.len();
     let mut deserializer = SeqDeserializer::new(array)?;
     let seq = visitor.visit_seq(&mut deserializer)?;
-    let remaining = deserializer.iter.len();
+    let remaining = deserializer.len();
     if remaining == 0 {
         Ok(seq)
     } else {
@@ -435,8 +435,9 @@ impl MapKeyDeserializer<'_> {
     }
 }
 
-struct SeqDeserializer<'a> {
-    iter: vec::IntoIter<LuaValue<'a>>,
+enum SeqDeserializer<'a> {
+    LuaValue(vec::IntoIter<LuaValue<'a>>),
+    LuaNumber(vec::IntoIter<LuaNumber>),
 }
 
 impl<'a> SeqDeserializer<'a> {
@@ -444,8 +445,16 @@ impl<'a> SeqDeserializer<'a> {
     fn new(vec: Vec<LuaTableEntry<'a>>) -> Result<Self, Error> {
         // Check to see if we need to re-number things
         let mut has_keys = false;
+        let mut has_non_number_values = false;
         for entry in vec.iter() {
-            if !matches!(entry, LuaTableEntry::Value(_)) {
+            if !matches!(entry, LuaTableEntry::NumberValue(_)) {
+                has_non_number_values = true;
+            }
+
+            if !matches!(
+                entry,
+                LuaTableEntry::Value(_) | LuaTableEntry::NumberValue(_)
+            ) {
                 if !matches!(
                     entry,
                     LuaTableEntry::KeyValue(b)
@@ -462,11 +471,19 @@ impl<'a> SeqDeserializer<'a> {
 
         if !has_keys {
             // We can extract all the entries directly.
-            let vec: Vec<LuaValue<'a>> = vec.into_iter().map(|e| e.move_value()).collect();
+            if !has_non_number_values {
+                // We can extract all the numbers directly.
+                let vec: Vec<LuaNumber> = vec
+                    .into_iter()
+                    .filter_map(|e| e.move_number_value())
+                    .collect();
 
-            return Ok(SeqDeserializer {
-                iter: vec.into_iter(),
-            });
+                return Ok(SeqDeserializer::LuaNumber(vec.into_iter()));
+            } else {
+                let vec: Vec<LuaValue<'a>> = vec.into_iter().map(|e| e.move_value()).collect();
+
+                return Ok(SeqDeserializer::LuaValue(vec.into_iter()));
+            }
         }
 
         // Scan over the entire Vec, and overwrite entries.
@@ -491,6 +508,11 @@ impl<'a> SeqDeserializer<'a> {
                     i += 1;
                     highest_key = highest_key.max(i);
                 }
+                LuaTableEntry::NumberValue(value) => {
+                    h.insert(i, LuaValue::Number(value));
+                    i += 1;
+                    highest_key = highest_key.max(i);
+                }
                 _ => unreachable!(),
             }
         }
@@ -510,9 +532,14 @@ impl<'a> SeqDeserializer<'a> {
             next_key = k + 1;
         }
 
-        Ok(SeqDeserializer {
-            iter: vec.into_iter(),
-        })
+        Ok(SeqDeserializer::LuaValue(vec.into_iter()))
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::LuaNumber(i) => i.len(),
+            Self::LuaValue(i) => i.len(),
+        }
     }
 }
 
@@ -523,16 +550,30 @@ impl<'de> SeqAccess<'de> for SeqDeserializer<'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        match self.iter.next() {
-            Some(value) => seed.deserialize(value).map(Some),
-            None => Ok(None),
+        match self {
+            Self::LuaNumber(i) => match i.next() {
+                Some(value) => seed.deserialize(value).map(Some),
+                None => Ok(None),
+            },
+
+            Self::LuaValue(i) => match i.next() {
+                Some(value) => seed.deserialize(value).map(Some),
+                None => Ok(None),
+            },
         }
     }
 
     fn size_hint(&self) -> Option<usize> {
-        match self.iter.size_hint() {
-            (lower, Some(upper)) if lower == upper => Some(upper),
-            _ => None,
+        match self {
+            Self::LuaNumber(i) => match i.size_hint() {
+                (lower, Some(upper)) if lower == upper => Some(upper),
+                _ => None,
+            },
+
+            Self::LuaValue(i) => match i.size_hint() {
+                (lower, Some(upper)) if lower == upper => Some(upper),
+                _ => None,
+            },
         }
     }
 }

@@ -135,10 +135,10 @@ fn long_string() -> Result {
     check(
         b"{[[hello]],[=[world]=],'!',\"?\"}",
         LuaValue::Table(vec![
-            LuaTableEntry::Value(LuaValue::String(b"hello".into())),
-            LuaTableEntry::Value(LuaValue::String(b"world".into())),
-            LuaTableEntry::Value(LuaValue::String(b"!".into())),
-            LuaTableEntry::Value(LuaValue::String(b"?".into())),
+            LuaTableEntry::Value(Box::new(LuaValue::String(b"hello".into()))),
+            LuaTableEntry::Value(Box::new(LuaValue::String(b"world".into()))),
+            LuaTableEntry::Value(Box::new(LuaValue::String(b"!".into()))),
+            LuaTableEntry::Value(Box::new(LuaValue::String(b"?".into()))),
         ]),
     );
 
