@@ -164,12 +164,25 @@ pub fn to_json_value(
                     }
 
                     LuaTableEntry::Value(v) => {
+                        let v = to_json_value(*v, opts)?;
                         if object.is_empty() {
                             // We have no object yet, push into array
-                            array.push(to_json_value(*v, opts)?);
+                            array.push(v);
                         } else {
                             // We have an object, use the next key
-                            object.insert(array_next_idx.to_string(), to_json_value(*v, opts)?);
+                            object.insert(array_next_idx.to_string(), v);
+                            array_next_idx += 1;
+                        }
+                    }
+                    
+                    LuaTableEntry::NumberValue(n) => {
+                        let v = JsonNumber::try_from(n).map(JsonValue::Number)?;
+                        if object.is_empty() {
+                            // We have no object yet, push into array
+                            array.push(v);
+                        } else {
+                            // We have an object, use the next key
+                            object.insert(array_next_idx.to_string(), v);
                             array_next_idx += 1;
                         }
                     }

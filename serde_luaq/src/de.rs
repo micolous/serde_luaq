@@ -418,8 +418,8 @@ impl LuaTableEntry<'_> {
     #[cold]
     fn unexpected(&self) -> Unexpected<'_> {
         match self {
-            LuaTableEntry::NameValue(_, _) | LuaTableEntry::KeyValue(_, _) => Unexpected::Map,
-            LuaTableEntry::Value(_) => Unexpected::Seq,
+            LuaTableEntry::NameValue(_) | LuaTableEntry::KeyValue(_) => Unexpected::Map,
+            LuaTableEntry::Value(_) | LuaTableEntry::NumberValue(_) => Unexpected::Seq,
         }
     }
 }
@@ -448,7 +448,8 @@ impl<'a> SeqDeserializer<'a> {
             if !matches!(entry, LuaTableEntry::Value(_)) {
                 if !matches!(
                     entry,
-                    LuaTableEntry::KeyValue(LuaValue::Number(LuaNumber::Integer(_)), _)
+                    LuaTableEntry::KeyValue(b)
+                    if matches!(b.0, LuaValue::Number(LuaNumber::Integer(_)))
                 ) {
                     return Err(entry.invalid_type(&"Table with integer or implicit keys"));
                 }
@@ -474,12 +475,19 @@ impl<'a> SeqDeserializer<'a> {
         let mut highest_key = 0;
         for entry in vec {
             match entry {
-                LuaTableEntry::KeyValue(LuaValue::Number(LuaNumber::Integer(key)), value) => {
+                // This would be much cleaner with box_patterns:
+                // https://doc.rust-lang.org/beta/unstable-book/language-features/box-patterns.html
+                LuaTableEntry::KeyValue(entry)
+                    if matches!(entry.0, LuaValue::Number(LuaNumber::Integer(_))) =>
+                {
+                    let (LuaValue::Number(LuaNumber::Integer(key)), value) = *entry else {
+                        unreachable!();
+                    };
                     h.insert(key, value);
                     highest_key = highest_key.max(key);
                 }
                 LuaTableEntry::Value(value) => {
-                    h.insert(i, value);
+                    h.insert(i, *value);
                     i += 1;
                     highest_key = highest_key.max(i);
                 }
@@ -564,19 +572,27 @@ where
     {
         // Copy the entry without a value and pass to MapKeyDeserializer
         match self.iter.next() {
-            Some(LuaTableEntry::KeyValue(key, value)) => {
+            Some(LuaTableEntry::KeyValue(b)) => {
+                let (key, value) = *b;
                 self.value = Some(value);
 
                 let key_de = MapKeyDeserializer::KeyValue(key);
                 seed.deserialize(key_de).map(Some)
             }
-            Some(LuaTableEntry::NameValue(key, value)) => {
+            Some(LuaTableEntry::NameValue(b)) => {
+                let (key, value) = *b;
                 self.value = Some(value);
                 let key_de = MapKeyDeserializer::NameValue(key);
                 seed.deserialize(key_de).map(Some)
             }
             Some(LuaTableEntry::Value(value)) => {
-                self.value = Some(value);
+                self.value = Some(*value);
+                let key_de = MapKeyDeserializer::Value(self.next_numeric_index);
+                self.next_numeric_index += 1;
+                seed.deserialize(key_de).map(Some)
+            }
+            Some(LuaTableEntry::NumberValue(value)) => {
+                self.value = Some(LuaValue::Number(value));
                 let key_de = MapKeyDeserializer::Value(self.next_numeric_index);
                 self.next_numeric_index += 1;
                 seed.deserialize(key_de).map(Some)
@@ -769,8 +785,14 @@ where
         V: Visitor<'de>,
     {
         let (variant, value) = match self.0.next() {
-            Some(LuaTableEntry::KeyValue(LuaValue::String(k), v)) => (k, v),
-            Some(LuaTableEntry::NameValue(k, v)) => (to_utf8_cow(k), v),
+            Some(LuaTableEntry::KeyValue(b)) if matches!(&b.0, LuaValue::String(_)) => {
+                let (k, v) = *b;
+                let LuaValue::String(k) = k else {
+                    unreachable!();
+                };
+                (k, v)
+            }
+            Some(LuaTableEntry::NameValue(b)) => (to_utf8_cow(b.0), b.1),
             _ => {
                 return Err(serde::de::Error::invalid_value(
                     Unexpected::Map,

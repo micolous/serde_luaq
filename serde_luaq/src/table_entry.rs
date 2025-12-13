@@ -33,6 +33,12 @@ pub enum LuaTableEntry<'a> {
     /// > are consecutive numerical integers, starting with 1. Fields in the
     /// > other formats do not affect this counting.
     Value(Box<LuaValue<'a>>),
+
+    /// Bare numeric table entry without a key: `1234`.
+    /// 
+    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
+    /// for [`LuaNumber`][] literals that avoids an extra heap allocation.
+    NumberValue(LuaNumber),
 }
 
 impl<'a> LuaTableEntry<'a> {
@@ -55,11 +61,13 @@ impl<'a> LuaTableEntry<'a> {
         match self {
             LuaTableEntry::KeyValue(b) => Some(b.0.clone()),
             LuaTableEntry::NameValue(b) => Some(LuaValue::String(to_utf8_cow(b.0.clone()))),
-            LuaTableEntry::Value(_) => None,
+            LuaTableEntry::Value(_) | LuaTableEntry::NumberValue(_) => None,
         }
     }
 
-    /// Get the value of the table entry.
+    /// Get a reference to the value of the table entry, as a [`LuaValue`][].
+    ///
+    /// Returns [`None`][] for [`NumberValue`][LuaTableEntry::NumberValue].
     ///
     /// ## Example
     ///
@@ -70,20 +78,25 @@ impl<'a> LuaTableEntry<'a> {
     /// assert_eq!(&LuaValue::Boolean(true), LuaTableEntry::NameValue("foo".into(), LuaValue::Boolean(true)).value());
     /// assert_eq!(&LuaValue::Boolean(true), LuaTableEntry::Value(LuaValue::Boolean(true)).value());
     /// ```
-    pub fn value(&'a self) -> &'a LuaValue<'a> {
+    pub fn value(&'a self) -> Option<&'a LuaValue<'a>> {
         match self {
-            LuaTableEntry::KeyValue(b) => &b.1,
-            LuaTableEntry::NameValue(b) => &b.1,
-            LuaTableEntry::Value(value) => value,
+            LuaTableEntry::KeyValue(b) => Some(&b.1),
+            LuaTableEntry::NameValue(b) => Some(&b.1),
+            LuaTableEntry::Value(value) => Some(value),
+            LuaTableEntry::NumberValue(_) => None,
         }
     }
 
     /// Move the value out of the table entry.
+    /// 
+    /// For [`NumberValue`][LuaTableEntry::NumberValue], this wraps the entry in a [`LuaValue`][]
+    /// before returning it.
     pub fn move_value(self) -> LuaValue<'a> {
         match self {
             LuaTableEntry::KeyValue(b) => b.1,
             LuaTableEntry::NameValue(b) => b.1,
             LuaTableEntry::Value(value) => *value,
+            LuaTableEntry::NumberValue(value) => LuaValue::Number(value),
         }
     }
 }

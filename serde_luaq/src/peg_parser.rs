@@ -441,6 +441,11 @@ peg::parser! {
 
         rule table_entry(max_depth: u16) -> LuaTableEntry<'input>
             = _ v:(
+                // 1234
+                val:numbers() {
+                    LuaTableEntry::NumberValue(val)
+                } /
+
                 // "foo"
                 val:lua_value(max_depth)
                 {
