@@ -39,9 +39,28 @@ pub enum LuaTableEntry<'a> {
     /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
     /// for [`LuaNumber`][] literals that avoids an extra heap allocation.
     NumberValue(LuaNumber),
+
+    /// Bare boolean table entry without a key: `true`.
+    ///
+    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
+    /// for [`bool`][] literals that avoids an extra heap allocation.
+    BooleanValue(bool),
+
+    /// Bare `nil` table entry without a key.
+    ///
+    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
+    /// for `nil` literals that avoids an extra heap allocation.
+    NilValue,
 }
 
 impl<'a> LuaTableEntry<'a> {
+    pub const fn implicit_key(&self) -> bool {
+        matches!(
+            self,
+            Self::BooleanValue(_) | Self::NilValue | Self::NumberValue(_) | Self::Value(_)
+        )
+    }
+
     /// Get the key of the table entry.
     ///
     /// This will clone the key of [`KeyValue`][LuaTableEntry::KeyValue] entries.
@@ -61,13 +80,18 @@ impl<'a> LuaTableEntry<'a> {
         match self {
             LuaTableEntry::KeyValue(b) => Some(b.0.clone()),
             LuaTableEntry::NameValue(b) => Some(LuaValue::String(to_utf8_cow(b.0.clone()))),
-            LuaTableEntry::Value(_) | LuaTableEntry::NumberValue(_) => None,
+            LuaTableEntry::Value(_)
+            | LuaTableEntry::NumberValue(_)
+            | LuaTableEntry::NilValue
+            | LuaTableEntry::BooleanValue(_) => None,
         }
     }
 
     /// Get a reference to the value of the table entry, as a [`LuaValue`][].
     ///
-    /// Returns [`None`][] for [`NumberValue`][LuaTableEntry::NumberValue].
+    /// Returns [`None`][] for [`BooleanValue`][LuaTableEntry::BooleanValue],
+    /// [`NilValue`][LuaTableEntry::NilValue] and
+    /// [`NumberValue`][LuaTableEntry::NumberValue].
     ///
     /// ## Example
     ///
@@ -98,13 +122,16 @@ impl<'a> LuaTableEntry<'a> {
             LuaTableEntry::KeyValue(b) => Some(&b.1),
             LuaTableEntry::NameValue(b) => Some(&b.1),
             LuaTableEntry::Value(value) => Some(value),
-            LuaTableEntry::NumberValue(_) => None,
+            LuaTableEntry::NumberValue(_)
+            | LuaTableEntry::BooleanValue(_)
+            | LuaTableEntry::NilValue => None,
         }
     }
 
     /// Move the value out of the table entry.
     ///
-    /// For [`NumberValue`][LuaTableEntry::NumberValue], this wraps the entry in a [`LuaValue`][]
+    /// For [`BooleanValue`][LuaTableEntry::BooleanValue], [`NilValue`][LuaTableEntry::NilValue] and
+    /// [`NumberValue`][LuaTableEntry::NumberValue], this wraps the entry in a [`LuaValue`][]
     /// before returning it.
     pub fn move_value(self) -> LuaValue<'a> {
         match self {
@@ -112,6 +139,8 @@ impl<'a> LuaTableEntry<'a> {
             LuaTableEntry::NameValue(b) => b.1,
             LuaTableEntry::Value(value) => *value,
             LuaTableEntry::NumberValue(value) => LuaValue::Number(value),
+            LuaTableEntry::BooleanValue(value) => LuaValue::Boolean(value),
+            LuaTableEntry::NilValue => LuaValue::Nil,
         }
     }
 
@@ -141,6 +170,8 @@ impl<'a> LuaTableEntry<'a> {
             LuaTableEntry::NumberValue(n) => {
                 return Some(n);
             }
+
+            LuaTableEntry::NilValue | LuaTableEntry::BooleanValue(_) => (),
         }
 
         None
@@ -382,6 +413,13 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for LuaValue<'a> {
     }
 }
 
+impl From<bool> for LuaTableEntry<'_> {
+    /// Converts [`bool`] into [`LuaTableEntry::BooleanValue`].
+    fn from(value: bool) -> Self {
+        Self::BooleanValue(value)
+    }
+}
+
 impl From<LuaNumber> for LuaTableEntry<'_> {
     /// Converts [`LuaNumber`] into [`LuaTableEntry::NumberValue`].
     fn from(value: LuaNumber) -> Self {
@@ -390,9 +428,12 @@ impl From<LuaNumber> for LuaTableEntry<'_> {
 }
 
 impl<'a> From<LuaValue<'a>> for LuaTableEntry<'a> {
-    /// Converts [`LuaValue`] into [`LuaTableEntry::Value`] or [`LuaTableEntry::NumberValue`].
+    /// Converts [`LuaValue`] into [`LuaTableEntry::Value`][], [`LuaTableEntry::BooleanValue`][],
+    /// [`LuaTableEntry::NilValue`][] or [`LuaTableEntry::NumberValue`].
     fn from(value: LuaValue<'a>) -> Self {
         match value {
+            LuaValue::Nil => Self::NilValue,
+            LuaValue::Boolean(n) => Self::BooleanValue(n),
             LuaValue::Number(n) => Self::NumberValue(n),
             v => Self::Value(Box::new(v)),
         }

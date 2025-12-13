@@ -1,7 +1,7 @@
 mod common;
 
 use crate::common::{check, should_error, MAX_DEPTH};
-use serde_luaq::{LuaNumber, LuaTableEntry, LuaValue, lua_value, script};
+use serde_luaq::{lua_value, script, LuaNumber, LuaTableEntry, LuaValue};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
@@ -95,15 +95,21 @@ fn tables() {
     check(b, LuaValue::Table(vec![]));
 
     // Object containing nil
-    let b = b"{nil}";
-    check(b, LuaValue::Table(vec![LuaValue::Nil.into()]));
+    let b = b"{nil, true, false}";
+    check(
+        b,
+        LuaValue::Table(vec![LuaValue::Nil.into(), true.into(), false.into()]),
+    );
 
     // Example on https://www.lua.org/manual/5.4/manual.html#3.4.9, without function calls
     let b = b"{ [9999] = \"g\"; 'x', \"y\"; x = 1, 9999, [30] = 23; 45 }";
     check(
         b,
         LuaValue::Table(vec![
-            LuaTableEntry::KeyValue(Box::new((LuaValue::integer(9999), LuaValue::String(b"g".into())))),
+            LuaTableEntry::KeyValue(Box::new((
+                LuaValue::integer(9999),
+                LuaValue::String(b"g".into()),
+            ))),
             LuaValue::String(b"x".into()).into(),
             LuaValue::String(b"y".into()).into(),
             LuaTableEntry::NameValue(Box::new(("x".into(), LuaValue::integer(1)))),
@@ -190,7 +196,9 @@ fn long_string_tables() -> Result {
     check(b"{[ [[a]] ] = [[b]]}", &expected);
 
     // Deceptive syntax
-    let expected = LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::String(b"[a".into())))]);
+    let expected = LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::String(
+        b"[a".into(),
+    )))]);
     check(b"{[[[a]]}", &expected);
     check(b"{[=[[a]=]}", &expected);
 

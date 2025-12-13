@@ -419,7 +419,10 @@ impl LuaTableEntry<'_> {
     fn unexpected(&self) -> Unexpected<'_> {
         match self {
             LuaTableEntry::NameValue(_) | LuaTableEntry::KeyValue(_) => Unexpected::Map,
-            LuaTableEntry::Value(_) | LuaTableEntry::NumberValue(_) => Unexpected::Seq,
+            LuaTableEntry::Value(_)
+            | LuaTableEntry::NumberValue(_)
+            | LuaTableEntry::BooleanValue(_)
+            | LuaTableEntry::NilValue => Unexpected::Seq,
         }
     }
 }
@@ -451,10 +454,7 @@ impl<'a> SeqDeserializer<'a> {
                 has_non_number_values = true;
             }
 
-            if !matches!(
-                entry,
-                LuaTableEntry::Value(_) | LuaTableEntry::NumberValue(_)
-            ) {
+            if !entry.implicit_key() {
                 if !matches!(
                     entry,
                     LuaTableEntry::KeyValue(b)
@@ -510,6 +510,16 @@ impl<'a> SeqDeserializer<'a> {
                 }
                 LuaTableEntry::NumberValue(value) => {
                     h.insert(i, LuaValue::Number(value));
+                    i += 1;
+                    highest_key = highest_key.max(i);
+                }
+                LuaTableEntry::BooleanValue(value) => {
+                    h.insert(i, LuaValue::Boolean(value));
+                    i += 1;
+                    highest_key = highest_key.max(i);
+                }
+                LuaTableEntry::NilValue => {
+                    h.insert(i, LuaValue::Nil);
                     i += 1;
                     highest_key = highest_key.max(i);
                 }
@@ -634,6 +644,18 @@ where
             }
             Some(LuaTableEntry::NumberValue(value)) => {
                 self.value = Some(LuaValue::Number(value));
+                let key_de = MapKeyDeserializer::Value(self.next_numeric_index);
+                self.next_numeric_index += 1;
+                seed.deserialize(key_de).map(Some)
+            }
+            Some(LuaTableEntry::BooleanValue(value)) => {
+                self.value = Some(LuaValue::Boolean(value));
+                let key_de = MapKeyDeserializer::Value(self.next_numeric_index);
+                self.next_numeric_index += 1;
+                seed.deserialize(key_de).map(Some)
+            }
+            Some(LuaTableEntry::NilValue) => {
+                self.value = Some(LuaValue::Nil);
                 let key_de = MapKeyDeserializer::Value(self.next_numeric_index);
                 self.next_numeric_index += 1;
                 seed.deserialize(key_de).map(Some)

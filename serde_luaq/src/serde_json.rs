@@ -174,9 +174,33 @@ pub fn to_json_value(
                             array_next_idx += 1;
                         }
                     }
-                    
+
                     LuaTableEntry::NumberValue(n) => {
                         let v = JsonNumber::try_from(n).map(JsonValue::Number)?;
+                        if object.is_empty() {
+                            // We have no object yet, push into array
+                            array.push(v);
+                        } else {
+                            // We have an object, use the next key
+                            object.insert(array_next_idx.to_string(), v);
+                            array_next_idx += 1;
+                        }
+                    }
+
+                    LuaTableEntry::BooleanValue(b) => {
+                        let v = JsonValue::Bool(b);
+                        if object.is_empty() {
+                            // We have no object yet, push into array
+                            array.push(v);
+                        } else {
+                            // We have an object, use the next key
+                            object.insert(array_next_idx.to_string(), v);
+                            array_next_idx += 1;
+                        }
+                    }
+
+                    LuaTableEntry::NilValue => {
+                        let v = JsonValue::Null;
                         if object.is_empty() {
                             // We have no object yet, push into array
                             array.push(v);
