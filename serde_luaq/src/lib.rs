@@ -459,7 +459,8 @@
 //!
 //! At present, the highest-known memory usage per byte of input Lua is a deeply-nested table of
 //! tables, which consumes about 96 bytes of RAM for 2 bytes of input Lua (ie: 48&times;) on a
-//! 64-bit system. This means a 64 MiB input could use up to 3 GiB of RAM.
+//! 64-bit system. This means a 64 MiB input could use up to 3 GiB of RAM. This can be mitigated by
+//! [lowering the maximum table depth](#maximum-table-depth).
 //!
 //! Lua uses similar amounts of memory for such data structures.
 //!
