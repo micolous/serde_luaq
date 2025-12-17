@@ -1,4 +1,10 @@
 use crate::{LuaNumber, LuaTableEntry};
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+))]
+use static_assertions::assert_eq_size;
 use std::{
     borrow::Cow,
     fmt::{Debug, Formatter},
@@ -126,6 +132,13 @@ pub enum LuaValue<'a> {
     /// [lua3.4.9]: https://www.lua.org/manual/5.4/manual.html#3.4.9
     Table(Vec<LuaTableEntry<'a>>),
 }
+
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+))]
+assert_eq_size!((usize, usize, LuaNumber), LuaValue<'_>);
 
 impl Debug for LuaValue<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
