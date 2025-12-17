@@ -385,6 +385,62 @@ fn integers() -> Result {
     Ok(())
 }
 
+/// Hex integers for signed fields overflow as [i64][] only.
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn hex_overflow() -> Result {
+    // i8
+    assert_eq!(
+        -1,
+        from_slice::<i8>(b"0xffffffffffffffff", LuaFormat::Value, MAX_DEPTH)?,
+    );
+    assert_eq!(
+        i8::MIN,
+        from_slice::<i8>(b"0xffffffffffffff80", LuaFormat::Value, MAX_DEPTH)?,
+    );
+    assert!(from_slice::<i8>(b"0x80", LuaFormat::Value, MAX_DEPTH).is_err());
+    assert!(from_slice::<i8>(b"0xff", LuaFormat::Value, MAX_DEPTH).is_err());
+    assert!(from_slice::<i8>(b"0xffffffffffffff7f", LuaFormat::Value, MAX_DEPTH).is_err());
+
+    // i16
+    assert_eq!(
+        -1,
+        from_slice::<i16>(b"0xffffffffffffffff", LuaFormat::Value, MAX_DEPTH)?,
+    );
+    assert_eq!(
+        i16::MIN,
+        from_slice::<i16>(b"0xffffffffffff8000", LuaFormat::Value, MAX_DEPTH)?,
+    );
+    assert!(from_slice::<i16>(b"0x8000", LuaFormat::Value, MAX_DEPTH).is_err());
+    assert!(from_slice::<i16>(b"0xffff", LuaFormat::Value, MAX_DEPTH).is_err());
+    assert!(from_slice::<i16>(b"0xffffffffffff7fff", LuaFormat::Value, MAX_DEPTH).is_err());
+
+    // i32
+    assert_eq!(
+        -1,
+        from_slice::<i32>(b"0xffffffffffffffff", LuaFormat::Value, MAX_DEPTH)?,
+    );
+    assert_eq!(
+        i32::MIN,
+        from_slice::<i32>(b"0xffffffff80000000", LuaFormat::Value, MAX_DEPTH)?,
+    );
+    assert!(from_slice::<i32>(b"0x80000000", LuaFormat::Value, MAX_DEPTH).is_err());
+    assert!(from_slice::<i32>(b"0xffffffff", LuaFormat::Value, MAX_DEPTH).is_err());
+    assert!(from_slice::<i32>(b"0xffffffff7fffffff", LuaFormat::Value, MAX_DEPTH).is_err());
+
+    // i64
+    assert_eq!(
+        -1,
+        from_slice::<i64>(b"0xffffffffffffffff", LuaFormat::Value, MAX_DEPTH)?,
+    );
+    assert_eq!(
+        i64::MIN,
+        from_slice::<i64>(b"0x8000000000000000", LuaFormat::Value, MAX_DEPTH)?,
+    );
+
+    Ok(())
+}
+
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn floats() -> Result {
