@@ -11,7 +11,7 @@ use crate::{
 use static_assertions::assert_eq_size;
 use std::{borrow::Cow, str::from_utf8};
 
-/// Lua table entry.
+/// Lua [table][LuaValue::Table] entry.
 ///
 /// Reference: <https://www.lua.org/manual/5.4/manual.html#3.4.9>
 #[derive(Debug, Clone, PartialEq)]

@@ -16,12 +16,12 @@ The goal is to be able to read state from software (mostly games) which is seria
 
 This library consists of four parts:
 
-- A [`LuaValue`][luavalue] `enum`, which describes Lua 5.4's basic data types (`nil`, boolean, string, number,
-  table).
+- A [`LuaValue`][luavalue] `enum`, which describes Lua 5.4's basic data types (`nil`, boolean,
+  string, number, table).
 
 - A [`peg`][peg]-based parser for parsing a `&[u8]` (containing Lua) into a `LuaValue`.
 
-- A [`serde`][serde]-based `Deserialize` implementation for converting a `LuaValue` into your own
+- A [Serde][serde]-based `Deserialize` implementation for converting a `LuaValue` into your own
   data types.
 
 - _Optional_ lossy converter to and from `serde_json`'s `Value` type.

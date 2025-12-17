@@ -33,7 +33,8 @@ use std::{
 ///
 /// As a result, you can't use [`LuaValue`][] as a field type or deserialise to it.
 ///
-/// If you want to deserialise Lua to a [`LuaValue`][], use one of the `peg` parsers.
+/// If you want to deserialise Lua to a [`LuaValue`][], use one of
+/// [the `peg` deserialisers][crate#peg-deserialiser].
 #[derive(Clone, PartialEq)]
 pub enum LuaValue<'a> {
     /// Nil value.
@@ -90,7 +91,9 @@ pub enum LuaValue<'a> {
 
     /// Array / record / object type.
     ///
-    /// From the [Lua 5.4 Reference Manual, Section 2.1][lua2.1]:
+    /// ## References
+    ///
+    /// [Lua 5.4 Reference Manual, Section 2.1][lua2.1]:
     ///
     /// > The type _table_ implements associative arrays, that is, arrays that can be indexed not
     /// > only with numbers, but with any value (except `nil`).
@@ -110,7 +113,7 @@ pub enum LuaValue<'a> {
     ///
     /// ## Caveats
     ///
-    /// This library implements tables slightly differently to Lua:
+    /// `serde_luaq` implements tables slightly differently to Lua:
     ///
     /// * A [`LuaValue::Table`] is a sequence ([`Vec`]) of [entries][LuaTableEntry], rather than a
     ///   `Map`.
@@ -120,10 +123,10 @@ pub enum LuaValue<'a> {
     ///
     ///   This allows keys to be repeated, and include non-hashable types.
     ///
-    /// * Table keys may be set to _any_ value, including `nil` and `NaN`.
+    /// * Table keys may be set to _any_ value, including `nil` and [`NaN`][f64::NAN].
     ///
     /// * Table values may be set to `nil`. While Lua's manual claims these are treated as missing,
-    ///   it's possible for `%q`-formatted strings to contain such values.
+    ///   it is possible for `%q`-formatted strings to contain such values.
     ///
     /// When using `serde`, you can still use a table to populate a [`BTreeMap`] or [`Vec`].
     ///
