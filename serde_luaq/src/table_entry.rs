@@ -3,9 +3,15 @@ use crate::{
     value::{from_utf8_cow, to_utf8_cow},
     LuaNumber, LuaValue,
 };
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+))]
+use static_assertions::assert_eq_size;
 use std::{borrow::Cow, str::from_utf8};
 
-/// Lua table entry.
+/// Lua [table][LuaValue::Table] entry.
 ///
 /// Reference: <https://www.lua.org/manual/5.4/manual.html#3.4.9>
 #[derive(Debug, Clone, PartialEq)]
@@ -52,6 +58,13 @@ pub enum LuaTableEntry<'a> {
     /// for `nil` literals that avoids an extra heap allocation.
     NilValue,
 }
+
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+))]
+assert_eq_size!(LuaNumber, LuaTableEntry<'_>);
 
 impl<'a> LuaTableEntry<'a> {
     pub const fn implicit_key(&self) -> bool {

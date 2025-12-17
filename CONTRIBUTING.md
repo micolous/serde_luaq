@@ -54,7 +54,7 @@ source code with Lua... but this is not currently measured.
 
   The goal is that these will be answered by the documentation.
 
-Issues and questions sent by email will attract my professional consulting rates. :)
+Issues and questions sent by email may attract my professional consulting rates. :)
 
 ## Submitting PRs
 

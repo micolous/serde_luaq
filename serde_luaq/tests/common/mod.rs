@@ -1,4 +1,3 @@
-//! Tests with Lua literals
 #![allow(dead_code)]
 
 use serde_luaq::{lua_value, return_statement, script, LuaValue};

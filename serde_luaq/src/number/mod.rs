@@ -1,5 +1,12 @@
 mod de;
 
+use crate::LuaValue;
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32"
+))]
+use static_assertions::assert_eq_size;
 use std::{fmt::Display, ops::Neg};
 
 /// Maximum integer value that can be represented in an [`f64`] without loss of precision.
@@ -23,6 +30,13 @@ pub enum LuaNumber {
     /// uses 64-bit values.
     Float(f64),
 }
+
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+))]
+assert_eq_size!((i64, f64), LuaNumber);
 
 impl LuaNumber {
     /// Returns `true` if the value is NaN.
@@ -173,6 +187,15 @@ impl Display for LuaNumber {
         match self {
             Self::Float(v) => v.fmt(f),
             Self::Integer(v) => v.fmt(f),
+        }
+    }
+}
+
+impl PartialEq<LuaValue<'_>> for LuaNumber {
+    fn eq(&self, other: &LuaValue<'_>) -> bool {
+        match other {
+            LuaValue::Number(n) => other == n,
+            _ => false,
         }
     }
 }

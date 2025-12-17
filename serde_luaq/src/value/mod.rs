@@ -1,4 +1,10 @@
 use crate::{LuaNumber, LuaTableEntry};
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+))]
+use static_assertions::assert_eq_size;
 use std::{
     borrow::Cow,
     fmt::{Debug, Formatter},
@@ -27,7 +33,8 @@ use std::{
 ///
 /// As a result, you can't use [`LuaValue`][] as a field type or deserialise to it.
 ///
-/// If you want to deserialise Lua to a [`LuaValue`][], use one of the `peg` parsers.
+/// If you want to deserialise Lua to a [`LuaValue`][], use one of
+/// [the `peg` deserialisers][crate#peg-deserialiser].
 #[derive(Clone, PartialEq)]
 pub enum LuaValue<'a> {
     /// Nil value.
@@ -84,7 +91,9 @@ pub enum LuaValue<'a> {
 
     /// Array / record / object type.
     ///
-    /// From the [Lua 5.4 Reference Manual, Section 2.1][lua2.1]:
+    /// ## References
+    ///
+    /// [Lua 5.4 Reference Manual, Section 2.1][lua2.1]:
     ///
     /// > The type _table_ implements associative arrays, that is, arrays that can be indexed not
     /// > only with numbers, but with any value (except `nil`).
@@ -104,7 +113,7 @@ pub enum LuaValue<'a> {
     ///
     /// ## Caveats
     ///
-    /// This library implements tables slightly differently to Lua:
+    /// `serde_luaq` implements tables slightly differently to Lua:
     ///
     /// * A [`LuaValue::Table`] is a sequence ([`Vec`]) of [entries][LuaTableEntry], rather than a
     ///   `Map`.
@@ -114,10 +123,10 @@ pub enum LuaValue<'a> {
     ///
     ///   This allows keys to be repeated, and include non-hashable types.
     ///
-    /// * Table keys may be set to _any_ value, including `nil` and `NaN`.
+    /// * Table keys may be set to _any_ value, including `nil` and [`NaN`][f64::NAN].
     ///
     /// * Table values may be set to `nil`. While Lua's manual claims these are treated as missing,
-    ///   it's possible for `%q`-formatted strings to contain such values.
+    ///   it is possible for `%q`-formatted strings to contain such values.
     ///
     /// When using `serde`, you can still use a table to populate a [`BTreeMap`] or [`Vec`].
     ///
@@ -126,6 +135,13 @@ pub enum LuaValue<'a> {
     /// [lua3.4.9]: https://www.lua.org/manual/5.4/manual.html#3.4.9
     Table(Vec<LuaTableEntry<'a>>),
 }
+
+#[cfg(any(
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+))]
+assert_eq_size!((usize, usize, LuaNumber), LuaValue<'_>);
 
 impl Debug for LuaValue<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -499,6 +515,15 @@ pub(crate) fn to_utf8_cow(v: Cow<'_, str>) -> Cow<'_, [u8]> {
     }
 }
 
+impl PartialEq<LuaNumber> for LuaValue<'_> {
+    fn eq(&self, other: &LuaNumber) -> bool {
+        match self {
+            LuaValue::Number(n) => n == other,
+            _ => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -555,73 +580,105 @@ mod test {
     #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn from_integer() {
         // i64
-        assert_eq!(LuaValue::integer(0), LuaValue::from(0));
-        assert_eq!(LuaValue::integer(i64::MIN), LuaValue::from(i64::MIN));
-        assert_eq!(LuaValue::integer(i64::MAX), LuaValue::from(i64::MAX));
+        for x in [0, i64::MIN, i64::MAX] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::integer(x), v);
+            assert_eq!(LuaValue::integer(x), LuaNumber::Integer(x));
+            assert_eq!(LuaNumber::Integer(x), LuaValue::integer(x));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::integer(1), v);
+        }
 
         // i32
-        assert_eq!(LuaValue::integer(0), LuaValue::from(0i32));
-        assert_eq!(LuaValue::integer(i32::MIN.into()), LuaValue::from(i32::MIN));
-        assert_eq!(LuaValue::integer(i32::MAX.into()), LuaValue::from(i32::MAX));
+        for x in [0, i32::MIN, i32::MAX] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::integer(x.into()), v);
+            assert_eq!(LuaValue::integer(x.into()), LuaNumber::Integer(x.into()));
+            assert_eq!(LuaNumber::Integer(x.into()), LuaValue::integer(x.into()));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::integer(1), v);
+        }
 
         // i16
-        assert_eq!(LuaValue::integer(0), LuaValue::from(0i16));
-        assert_eq!(LuaValue::integer(i16::MIN.into()), LuaValue::from(i16::MIN));
-        assert_eq!(LuaValue::integer(i16::MAX.into()), LuaValue::from(i16::MAX));
+        for x in [0, i16::MIN, i16::MAX] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::integer(x.into()), v);
+            assert_eq!(LuaValue::integer(x.into()), LuaNumber::Integer(x.into()));
+            assert_eq!(LuaNumber::Integer(x.into()), LuaValue::integer(x.into()));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::integer(1), v);
+        }
 
         // i8
-        assert_eq!(LuaValue::integer(0), LuaValue::from(0i8));
-        assert_eq!(LuaValue::integer(i8::MIN.into()), LuaValue::from(i8::MIN));
-        assert_eq!(LuaValue::integer(i8::MAX.into()), LuaValue::from(i8::MAX));
+        for x in [0, i8::MIN, i8::MAX] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::integer(x.into()), v);
+            assert_eq!(LuaValue::integer(x.into()), LuaNumber::Integer(x.into()));
+            assert_eq!(LuaNumber::Integer(x.into()), LuaValue::integer(x.into()));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::integer(1), v);
+        }
 
         // u64
         assert_eq!(LuaValue::integer(0), LuaValue::try_from(0u64).unwrap());
         LuaValue::try_from(u64::MAX).unwrap_err();
 
         // u32
-        assert_eq!(LuaValue::integer(0), LuaValue::from(0u32));
-        assert_eq!(LuaValue::integer(u32::MAX.into()), LuaValue::from(u32::MAX));
+        for x in [0, u32::MAX] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::integer(x.into()), v);
+            assert_eq!(LuaValue::integer(x.into()), LuaNumber::Integer(x.into()));
+            assert_eq!(LuaNumber::Integer(x.into()), LuaValue::integer(x.into()));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::integer(1), v);
+        }
 
         // u16
-        assert_eq!(LuaValue::integer(0), LuaValue::from(0u16));
-        assert_eq!(LuaValue::integer(u16::MAX.into()), LuaValue::from(u16::MAX));
+        for x in [0, u16::MAX] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::integer(x.into()), v);
+            assert_eq!(LuaValue::integer(x.into()), LuaNumber::Integer(x.into()));
+            assert_eq!(LuaNumber::Integer(x.into()), LuaValue::integer(x.into()));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::integer(1), v);
+        }
 
         // u8
-        assert_eq!(LuaValue::integer(0), LuaValue::from(0u8));
-        assert_eq!(LuaValue::integer(u8::MAX.into()), LuaValue::from(u8::MAX));
+        for x in [0, u8::MAX] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::integer(x.into()), v);
+            assert_eq!(LuaValue::integer(x.into()), LuaNumber::Integer(x.into()));
+            assert_eq!(LuaNumber::Integer(x.into()), LuaValue::integer(x.into()));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::integer(1), v);
+        }
     }
 
     #[test]
     #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
     fn from_float() {
         // f64
-        assert_eq!(LuaValue::float(0.), LuaValue::from(0.));
-        assert_eq!(LuaValue::float(f64::MIN), LuaValue::from(f64::MIN));
-        assert_eq!(LuaValue::float(f64::MAX), LuaValue::from(f64::MAX));
-        assert_eq!(
-            LuaValue::float(f64::INFINITY),
-            LuaValue::from(f64::INFINITY),
-        );
-        assert_eq!(
-            LuaValue::float(f64::NEG_INFINITY),
-            LuaValue::from(f64::NEG_INFINITY),
-        );
+        for x in [0., f64::MIN, f64::MAX, f64::INFINITY, f64::NEG_INFINITY] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::float(x), v);
+            assert_eq!(LuaValue::float(x), LuaNumber::Float(x));
+            assert_eq!(LuaNumber::Float(x), LuaValue::float(x));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::float(1.), v);
+        }
 
         let f = LuaValue::from(f64::NAN);
         assert!(matches!(f, LuaValue::Number(LuaNumber::Float(x)) if x.is_nan()));
 
         // f32
-        assert_eq!(LuaValue::float(0.), LuaValue::from(0f32));
-        assert_eq!(LuaValue::float(f32::MIN.into()), LuaValue::from(f32::MIN));
-        assert_eq!(LuaValue::float(f32::MAX.into()), LuaValue::from(f32::MAX));
-        assert_eq!(
-            LuaValue::float(f64::INFINITY),
-            LuaValue::from(f32::INFINITY),
-        );
-        assert_eq!(
-            LuaValue::float(f64::NEG_INFINITY),
-            LuaValue::from(f32::NEG_INFINITY),
-        );
+        for x in [0., f32::MIN, f32::MAX, f32::INFINITY, f32::NEG_INFINITY] {
+            let v = LuaValue::from(x);
+            assert_eq!(LuaValue::float(x.into()), v);
+            assert_eq!(LuaValue::float(x.into()), LuaNumber::Float(x.into()));
+            assert_eq!(LuaNumber::Float(x.into()), LuaValue::float(x.into()));
+            assert_ne!(LuaValue::Boolean(false), v);
+            assert_ne!(LuaValue::float(1.), v);
+        }
 
         let f = LuaValue::from(f32::NAN);
         assert!(matches!(f, LuaValue::Number(LuaNumber::Float(x)) if x.is_nan()));

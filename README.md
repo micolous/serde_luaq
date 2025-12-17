@@ -16,12 +16,12 @@ The goal is to be able to read state from software (mostly games) which is seria
 
 This library consists of four parts:
 
-- A [`LuaValue`][luavalue] `enum`, which describes Lua 5.4's basic data types (`nil`, boolean, string, number,
-  table).
+- A [`LuaValue`][luavalue] `enum`, which describes Lua 5.4's basic data types (`nil`, boolean,
+  string, number, table).
 
 - A [`peg`][peg]-based parser for parsing a `&[u8]` (containing Lua) into a `LuaValue`.
 
-- A [`serde`][serde]-based `Deserialize` implementation for converting a `LuaValue` into your own
+- A [Serde][serde]-based `Deserialize` implementation for converting a `LuaValue` into your own
   data types.
 
 - _Optional_ lossy converter to and from `serde_json`'s `Value` type.
@@ -93,12 +93,12 @@ that a JSON parser would implement:
 - [x] `nil`
 - [x] Booleans (`true`, `false`)
 - [x] [Numbers][lua3.1]
-  - [x] [Integers][lua3.1]
+  - [x] [Integers][lua3.1] (`i64` only)
     - [x] Decimal integers (`123`)
       - [x] Coercion to float for decimal numbers `< i64::MIN` or `> i64::MAX` ([Lua 5.4][lua8])
-    - [x] Hexadecimal integer (`0xFF`)
+    - [x] Hexadecimal integers (`0xFF`)
       - [x] Wrapping large hexadecimal numbers to `i64`
-  - [x] [Floats][lua3.1]
+  - [x] [Floats][lua3.1] (`f64` only)
     - [x] Decimal floats with decimal point and optional exponent (`3.14`, `0.314e1`)
     - [x] Decimal floats with mandatory exponent (`3e14`)
     - [x] Hexadecimal floating points (`0x.ABCDEFp+24`) (*not supported on WASM*)
@@ -130,12 +130,12 @@ are _intentionally unsupported_:
 
 - Arithmetic operators (`+`, `-`, `*`, `/`...)
 - Bitwise operators (`<<`, `>>`, `&`, `|`, `~`...)
-- Blocks and visibility modifiers (`do ... end`, `local`)
+- Blocks and control structures (`if`, `break`, `do`, `end`, `for`, `goto`, `repeat`, `until`, `while`...)
 - Comments
-- Control structures (`if`, `break`, `for`, `goto`, `repeat`, `until`, `while`...)
 - Function calls
 - Function definitions
 - Length operator (`#`)
+- Locale-specific behaviour (`3,14159`)
 - Logical operators (`and`, `or`, `not`)
 - Newline character normalisation in strings (`\r\n` => `\n` on UNIX, `\n` => `\r\n` on Windows)
 - Parentheses, except for `(0/0)` (NaN)
@@ -147,6 +147,7 @@ are _intentionally unsupported_:
 - Updating other variables (`a = {}; a.b = 'foo'`)
 - Userdata
 - Vararg assignments and destructuring (`a, b = 1, 2`)
+- Variable attributes and visibility modifiers (`local <const> a = 10`)
 
 If you want to use these language features or otherwise need to run arbitrary Lua code, look at
 something like [`mlua`][mlua], which links to `liblua`, and also provides `serde` bindings.

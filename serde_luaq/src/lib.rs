@@ -88,10 +88,22 @@
 //! However, [`LuaValue` doesn't implement `Deserialize`][LuaValue#serde], so can't be used as a
 //! Serde field.
 //!
+//! Generally speaking, `serde_luaq` tries to do whatever a default build of Lua 5.4 does,
+//! **except for**:
+//!
+//! * anything which requires evaluating or executing Lua code
+//! * locale-dependant behaviour
+//! * platform-dependant behaviour
+//!
+//! Unicode identifiers (`LUA_UCID`) and other locale-specific identifiers are not supported, even
+//! if they would be valid in Rust.
+//!
 //! ### Numbers
 //!
-//! `serde_luaq` follows Lua 5.4's number handling semantics. The following types can be used with
-//! Serde's data model:
+//! `serde_luaq` follows Lua 5.4's number handling semantics, but _doesn't_ implement
+//! locale-specific behaviour (eg: [using `,` as a decimal point in addition to `.`][comma]).
+//!
+//! The following types can be used with Serde's data model:
 //!
 //! | Literal | [`LuaNumber`][] | [`f64`][] | [`i64`][] |
 //! | ------- | :-------------: | :-------: | :-------: |
@@ -113,17 +125,23 @@
 //! * Decimal integer literals _outside_ of the [`i64`][] range are converted to [`f64`][], and will
 //!   lose precision. These cannot be used with [`i64`][] fields.
 //!
-//! * Hexadecimal integer literals _outside_ of the [`i64`][] range will under/overflow as
-//!   [`i64`][], even in [`f64`][] fields (ie: `0xffffffffffffffff` is `-1_f64`), and can _always_
-//!   be used with [`i64`][] fields.
+//! * Hexadecimal integer literals are always coerced to [`i64`][], and can _always_ be used with
+//!   [`i64`][] fields. Values _outside_ of the [`i64`][] range will _only_ under/overflow as
+//!   [`i64`][], regardless of the field type.
 //!
-//! * Unsigned integer fields like [`u8`][] and [`u16`][] reject all negative integer literals,
-//!   including hexadecimal integer literals.
+//!   This means the literal `0xffffffffffffffff` is always treated as if it were written `-1`, even
+//!   for [`f64`][], [`i8`][], and [`u64`][] fields. This would be an error for unsigned types.
 //!
-//! * Narrower integer fields like [`i8`][] and [`i16`][] reject all integer literals outside of
-//!   their range, including hexadecimal integer literals.
+//! * Narrower integer fields like [`i8`][] and [`i16`][] reject all integer literals that are
+//!   outside of their range.
 //!
-//! * Narrower float fields like [`f32`][] are first handled as a [`f64`][] then converted to
+//!   The [`i64`][] coersion process means that the hexadecimal literal `0xff` is treated as if it
+//!   were written `255`, and using it with an [`i8`][] field would be an error.
+//!
+//! * Unsigned integer fields like [`u8`][] and [`u16`][] reject all negative decimal integer
+//!   literals.
+//!
+//! * Narrower float fields like [`f32`][] are first handled as a [`f64`][], then converted to
 //!   [`f32`][]. This will result in a loss of precision, and values outside of
 //!   [their acceptable range][f32::MAX] will be set to [positive][f32::INFINITY] or
 //!   [negative infinity][f32::NEG_INFINITY].
@@ -142,18 +160,32 @@
 //!
 //! Lua's `\u{...}` escapes follow [RFC 2279][] (1998) rather than [RFC 3629][] (2003). RFC 2279
 //! differs by allowing [surrogate code points][surrogate] and code points greater than
-//! `\u{10FFFF}`. `serde_luaq` will convert these escapes into bytes following RFC 2279.
+//! `\u{10FFFF}`. `serde_luaq` will convert these escapes into bytes following RFC 2279, which might
+//! not be valid in RFC 3629.
 //!
 //! Serde [`String`] fields can be used the string literal evaluates to valid RFC 3629 UTF-8. This
 //! is not guaranteed even if [the input data is `&str`][self::from_str], as Lua string escapes may
 //! evaluate to binary values or invalid sequences (eg: `"\xC1\u{7FFFFFFF}"`).
+//!
+//! **Unlike Lua,** new-line characters/sequences in strings are kept _as-is_, and not converted to
+//! their platform-specific representation.
 //!
 //! ### Tables
 //!
 //! Lua tables are used for both lists and maps.
 //!
 //! The [`peg` deserialisers](#peg-deserialiser) will always produce a [`Vec`][] of
-//! [`LuaTableEntry`][] in the order the entries were defined, including duplicate keys.
+//! [`LuaTableEntry`][] in the order the entries were defined. It does not attempt to reconcile
+//! implicit keys mixed with explicit keys, nor duplicate keys.
+//!
+//! Unlike Lua, a [`LuaTableEntry`][] may use _any_ key or value type, including
+//! [`nil`][LuaValue::Nil] and [NaN][f64::NAN].
+//!
+//! As a convienience, [identifier-keyed entries][LuaTableEntry::NameValue] (`{ a = 1 }`) are
+//! treated as keyed with [`str`][], because with Lua's default build settings, these are always
+//! valid [RFC 3629][] UTF-8.
+//!
+//! The rules are slightly different when using Serde, which is described below.
 //!
 //! #### Duplicate table keys in Serde
 //!
@@ -171,26 +203,117 @@
 //! #### Tables as lists in Serde (Vec)
 //!
 //! Lua tables are 1-indexed, rather than 0-indexed. `serde_luaq` will handle these differences on
-//! the input side for explicitly-keyed values, and make the resulting [`Vec`] 0-indexed.
+//! the input side for explicitly-keyed values, and make the resulting [`Vec`] 0-indexed:
 //!
-//! Table entries may be defined with implicit or explicit keys, or a combination. Any missing
-//! entries will be treated as `nil`:
+//! ```rust
+//! # use serde::Deserialize;
+//! # use serde_luaq::{Error, LuaFormat, from_slice};
+//! # fn main() -> Result<(), Error> {
+//! let a: Vec<i64> = from_slice(
+//!     b"{1, 2, 3}",
+//!     LuaFormat::Value,
+//!     /* max table depth */ 16,
+//! )?;
 //!
-//! ```text
-//! { 1, [3] = 2 } == vec![Some(1), None, Some(2)]
+//! assert_eq!(a[0], 1);
+//! assert_eq!(a[1], 2);
+//! assert_eq!(a[2], 3);
+//! # Ok(())
+//! # }
 //! ```
+//!
+//! Table entries may be defined with implicit or explicit keys, or a combination, and may be
+//! defined in any order.
+//!
+//! Any missing entries will be treated as `nil`, which can be used with [`Option`][]:
+//!
+//! ```rust
+//! # use serde::Deserialize;
+//! # use serde_luaq::{Error, LuaFormat, from_slice};
+//! # fn main() -> Result<(), Error> {
+//! let b: Vec<Option<i64>> = from_slice(
+//!     b"{1, [4] = 4, 2}",
+//!     LuaFormat::Value,
+//!     /* max table depth */ 16,
+//! )?;
+//!
+//! assert_eq!(b, vec![Some(1), Some(2), None, Some(4)]);
+//!
+//! let c: Vec<Option<i64>> = from_slice(
+//!     b"{1, [1000] = 1000}",
+//!     LuaFormat::Value,
+//!     /* max table depth */ 16,
+//! )?;
+//!
+//! assert_eq!(c.len(), 1000);
+//! assert_eq!(c[0], Some(1));
+//! assert_eq!(c[999], Some(1000));
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! If you're working with a sparse table, it's probably better to handle it as a map (see below).
 //!
 //! #### Tables as maps in Serde (BTreeMap/HashMap)
 //!
 //! If the key of the map is an integer type, table entries may contain implicit keys. Like Lua,
 //! implicit keys start counting at 1, without regard for explicit keys.
 //!
+//! ```rust
+//! # use std::collections::BTreeMap;
+//! # use serde::Deserialize;
+//! # use serde_luaq::{Error, LuaFormat, from_slice};
+//! # fn main() -> Result<(), Error> {
+//! let a: BTreeMap<i64, i64> = from_slice(
+//!     b"{1, [4] = 4, 2}",
+//!     LuaFormat::Value,
+//!     /* max table depth */ 16,
+//! )?;
+//!
+//! assert_eq!(1, *a.get(&1).unwrap());
+//! assert_eq!(2, *a.get(&2).unwrap());
+//! assert_eq!(4, *a.get(&4).unwrap());
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! Otherwise, all entries must be explicitly keyed.
+//!
+//! For maps, `serde_luaq` treats "entry present and set to `nil`" and "entry not present" as
+//! distinct states. This means unless a key or value uses an [`Option`][] type, it must not contain
+//! `nil`:
+//!
+//! ```rust
+//! # use std::collections::BTreeMap;
+//! # use serde::Deserialize;
+//! # use serde_luaq::{Error, LuaFormat, from_slice};
+//! # fn main() -> Result<(), Error> {
+//! let input = b"{a = 1, b = nil}";
+//!
+//! // Error: b cannot be a unit (None) type
+//! assert!(from_slice::<BTreeMap<String, i64>>(input, LuaFormat::Value, 16).is_err());
+//!
+//! // Success: b is set to None, other entries are set to Some
+//! let a: BTreeMap<String, Option<i64>> = from_slice(input, LuaFormat::Value, 16)?;
+//! assert_eq!(Some(1), *a.get("a").unwrap());
+//! assert!(a.get("b").unwrap().is_none()); // present, set to nil
+//! assert!(a.get("c").is_none()); // not present
+//! # Ok(())
+//! # }
+//! ```
 //!
 //! #### Tables as structs
 //!
-//! When deserialising a table as a `struct`, all keys must be strings or
+//! When deserialising a table as a `struct`, all keys must be valid [RFC 3629 strings](#strings) or
 //! [Lua identifiers][LuaTableEntry::NameValue].
+//!
+//! Unicode identifiers (`LUA_UCID`) and other locale-specific identifiers are not supported, even
+//! if they would be valid Rust identifiers. If used in a table key, these must be written as a
+//! string instead:
+//!
+//! ```lua
+//! { english = "en", ["français"] = "fr" }
+//! ```
 //!
 //! [Serde does not support numeric keys in structs][serde-num-keys].
 //!
@@ -216,7 +339,70 @@
 //! * **Luau** also adds type annotations, binary integer literals, separators for all integer
 //!   literals and string interpolation. None of these features are supported by `serde_luaq`.
 //!
-//! ## Maximum table depth
+//! * **Ravi** adds type annotations and some other language features, which aren't supported by
+//!   `serde_luaq`.
+//!
+//! ## Security
+//!
+//! While using Lua as a serialisation format is convenient to work with in Lua,
+//! [its `load()`][load] and [`require()`][require] functions allow arbitrary code execution, so
+//! aren't safe to use with untrusted inputs. These risks are similar to using
+//! [JavaScript's `eval()` function][jseval] to load JSON data (instead of
+//! [`JSON.parse()`][jsonparse]).
+//!
+//! For example, this Lua function loads an expression in the string `data`, similar to what would
+//! be produced by [the `serialize()` function described in _Programming in Lua_][pil12.1.1]:
+//!
+//! ```lua
+//! -- WARNING: this function is insecure and unsafe.
+//! function deserialize(data)
+//!     data = "return (" .. data .. ")"
+//!     local f = load(data, nil, "t")
+//!     if f == nil then
+//!         return error("could not load data")
+//!     end
+//!     local status, r = pcall(f)
+//!     if not status then
+//!         return error("could not call data")
+//!     end
+//!     return r
+//! end
+//!
+//! a = deserialize("{hello='world'}")
+//! -- Prints "world"
+//! print(a.hello)
+//! ```
+//!
+//! If your program is ever sent untrusted Lua inputs, a malicious actor could insert some code
+//! which could do anything to your program or the system it is running on.
+//!
+//! For example, this input would cause it to read and return the contents of `/etc/passwd`:
+//!
+//! ```lua
+//! (function() f=io.open('/etc/passwd');return f:read('a');end)()
+//! ```
+//!
+//! `serde_luaq` addresses this risk by implementing a JSON-like subset of Lua's syntax, such that
+//! inserting code is a syntax error:
+//!
+//! ```rust
+//! use serde_luaq::{LuaValue, lua_value};
+//!
+//! // This would cause Lua to return the contents of a local file:
+//! let input = b"(function() f=io.open('/etc/passwd');return f:read('a');end)()";
+//! // But it's a syntax error here.
+//! assert!(lua_value(input, 16).is_err());
+//!
+//! // This would cause Lua to use a lot of RAM:
+//! let input = b"(function() x={};for a=1,100000000 do x[a]=a end;return x;end)()";
+//! // But it's a syntax error here.
+//! assert!(lua_value(input, 16).is_err());
+//! ```
+//!
+//! Ideally, [`serde_luaq` shouldn't use significantly more memory than Lua](#large-input-data) to
+//! read the same data structures. If it doesn't, that's a bug. :)
+//!
+//! ### Maximum table depth
 //!
 //! The maximum table depth argument (`max_depth`) controls how deeply nested a table can be before
 //! being rejected by `serde_luaq`. Set this to the maximum depth of tables that you expect in your
@@ -238,17 +424,54 @@
 //! }
 //! ```
 //!
-//! **Warning:** setting this value too high allows a heavily-nested table to cause your program
-//! [to overflow its stack and crash][stackoverflow]. What is "too high" depends on your platform
-//! and where you call `serde_luaq` in your program.
-//!
-//! Setting `max_depth` to `0` disables support for tables, _even empty tables_.
-//!
 //! This is roughly equivalent to Lua's `LUAI_MAXCCALLS` build option, which counts many other
 //! nested lexical elements which `serde_luaq` doesn't support (like code blocks and parentheses).
 //!
+//! <div class="warning">
+//!
+//! **Warning:** setting `max_depth` too high allows a heavily-nested table to cause your program
+//! [to overflow its stack and crash][stackoverflow], or use
+//! [a large amount of memory per byte of input Lua](#large-input-data).
+//!
+//! What is "too high" depends on your platform and where you call `serde_luaq` in your program.
+//!
+//! Setting `max_depth` to `0` disables support for tables, _even empty tables_.
+//!
+//! </div>
+//!
+//! ### Large input data
+//!
+//! `serde_luaq` requires that the entire input fit in memory, and be less than [`usize::MAX`][]
+//! bytes (4 GiB on 32-bit systems, 16 EiB on 64-bit systems). It is the _caller's_ responsibility
+//! to enforce a reasonable input size limit.
+//!
+//! When deserialising a Lua data structure on a 64-bit system, the _minimum_ sizes of the
+//! [`LuaValue`][] and [`LuaTableEntry`][] `enum`s are 32 and 16 bytes respectively. Values are
+//! checked at compile-time on `aarch64`, `wasm32` and `x86_64` targets to prevent regressions.
+//!
+//! Heap-allocated variants of these `enum`s (those with [`Cow`][std::borrow::Cow] or [`Vec`][]
+//! fields) will use more memory.
+//!
+//! `serde_luaq` uses [`Cow`][std::borrow::Cow] to avoid owning strings whenever possible, and
+//! borrow them from the input buffer instead. However, strings that contain escape sequences need
+//! to be copied, but this is _at worst_ 1 to 1 memory with input Lua plus [`Vec`][]'s usual
+//! overheads.
+//!
+//! At present, the highest-known memory usage per byte of input Lua is a deeply-nested table of
+//! tables, which consumes about 96 bytes of RAM for 2 bytes of input Lua (ie: 48&times;) on a
+//! 64-bit system. This means a 64 MiB input could use up to 3 GiB of RAM. This can be mitigated by
+//! [lowering the maximum table depth](#maximum-table-depth).
+//!
+//! Lua uses similar amounts of memory for such data structures.
+//!
+//! [comma]: https://github.com/lua/lua/blob/104b0fc7008b1f6b7d818985fbbad05cd37ee654/testes/literals.lua#L298-L300
 //! [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
 //! [`peg`]: https://docs.rs/peg/latest/peg/
+//! [jseval]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval
+//! [jsonparse]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+//! [load]: https://www.lua.org/manual/5.4/manual.html#pdf-load
+//! [pil12.1.1]: https://www.lua.org/pil/12.1.1.html
+//! [require]: https://www.lua.org/manual/5.4/manual.html#pdf-require
 //! [Serde]: https://serde.rs/
 //! [serde_bytes]: https://docs.rs/serde_bytes/latest/serde_bytes/
 //! [serde-num-keys]: https://github.com/serde-rs/serde/issues/2358
