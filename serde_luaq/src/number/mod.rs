@@ -1,5 +1,6 @@
 mod de;
 
+use crate::LuaValue;
 use std::{fmt::Display, ops::Neg};
 
 /// Maximum integer value that can be represented in an [`f64`] without loss of precision.
@@ -173,6 +174,15 @@ impl Display for LuaNumber {
         match self {
             Self::Float(v) => v.fmt(f),
             Self::Integer(v) => v.fmt(f),
+        }
+    }
+}
+
+impl PartialEq<LuaValue<'_>> for LuaNumber {
+    fn eq(&self, other: &LuaValue<'_>) -> bool {
+        match other {
+            LuaValue::Number(n) => other == n,
+            _ => false,
         }
     }
 }
