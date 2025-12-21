@@ -1,8 +1,8 @@
 //! Serde deserialisation tests.
 mod common;
-use crate::common::MAX_DEPTH;
+use crate::common::{check, MAX_DEPTH};
 use serde::Deserialize;
-use serde_luaq::{from_slice, LuaFormat, LuaNumber};
+use serde_luaq::{from_slice, LuaFormat, LuaNumber, LuaTableEntry, LuaValue};
 use std::collections::BTreeMap;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -1028,6 +1028,87 @@ fn arrays() -> Result {
         expected,
         from_slice::<Vec<_>>(b"{[3] = 2.0, 1}", LuaFormat::Value, MAX_DEPTH)?
     );
+
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn flatten() -> Result {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct FlattenVecValue {
+        version: i32,
+        #[serde(flatten)]
+        entries: BTreeMap<String, Vec<B>>,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct B {
+        a: i32,
+        b: i32,
+    }
+
+    let lua = br#"{
+        ["version"] = 1,
+        ["abcd"] = {
+            { a = 1, b = 2, },
+            { ['a'] = 2, ['b'] = 4, },
+        },
+        ["efgh"] = {
+            { ["a"] = 4, ["b"] = 8, },
+        },
+    }"#;
+
+    let expected = FlattenVecValue {
+        version: 1,
+        entries: BTreeMap::from([
+            ("abcd".to_string(), vec![B { a: 1, b: 2 }, B { a: 2, b: 4 }]),
+            ("efgh".to_string(), vec![B { a: 4, b: 8 }]),
+        ]),
+    };
+
+    let expected_raw = LuaValue::Table(vec![
+        LuaTableEntry::KeyValue(Box::new((
+            LuaValue::String(b"version".into()),
+            LuaValue::integer(1),
+        ))),
+        LuaTableEntry::KeyValue(Box::new((
+            LuaValue::String(b"abcd".into()),
+            LuaValue::Table(vec![
+                LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                    LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::integer(1)))),
+                    LuaTableEntry::NameValue(Box::new(("b".into(), LuaValue::integer(2)))),
+                ]))),
+                LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                    LuaTableEntry::KeyValue(Box::new((
+                        LuaValue::String(b"a".into()),
+                        LuaValue::integer(2),
+                    ))),
+                    LuaTableEntry::KeyValue(Box::new((
+                        LuaValue::String(b"b".into()),
+                        LuaValue::integer(4),
+                    ))),
+                ]))),
+            ]),
+        ))),
+        LuaTableEntry::KeyValue(Box::new((
+            LuaValue::String(b"efgh".into()),
+            LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                LuaTableEntry::KeyValue(Box::new((
+                    LuaValue::String(b"a".into()),
+                    LuaValue::integer(4),
+                ))),
+                LuaTableEntry::KeyValue(Box::new((
+                    LuaValue::String(b"b".into()),
+                    LuaValue::integer(8),
+                ))),
+            ])))]),
+        ))),
+    ]);
+
+    check(lua, expected_raw);
+
+    assert_eq!(expected, from_slice(lua, LuaFormat::Value, MAX_DEPTH)?);
 
     Ok(())
 }
