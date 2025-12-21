@@ -833,115 +833,97 @@ fn strings() -> Result {
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn arrays() -> Result {
     let expected = ("hello", "world");
-    assert_eq!(
-        expected,
-        from_slice(b"{'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice(
-            b"{[1] = 'hello', [2] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    let expected_a = ["hello", "world"];
+    let expected_v = vec!["hello", "world"];
+    for b in [
+        b"{'hello', 'world'}".as_slice(),
+        b"{[1] = 'hello', [2] = 'world'}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected_a,
+            from_slice::<[&str; 2]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected_v,
+            from_slice::<Vec<&str>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
     // Any gaps at the start of the array are filled with nil/None
-    let expected = [None, Some("hello"), Some("world")];
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{nil, 'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[2] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{nil, nil, nil, [2] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[3] = 'world', [2] = 'hello'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    let expected = vec![None, Some("hello"), Some("world")];
+    for b in [
+        b"{nil, 'hello', 'world'}".as_slice(),
+        b"{[2] = 'hello', [3] = 'world'}",
+        b"{nil, nil, nil, [2] = 'hello', [3] = 'world'}",
+        b"{[3] = 'world', [2] = 'hello'}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice::<[Option<&str>; 3]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected,
+            from_slice::<Vec<Option<&str>>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
     // Gaps in the middle of the array are filled with nil/None
-    let expected = [Some("hello"), None, Some("world")];
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', nil, 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', [3] = 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[1] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{nil, nil, nil, [1] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[3] = 'world', [1] = 'hello'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    let expected = vec![Some("hello"), None, Some("world")];
+    for b in [
+        b"{'hello', nil, 'world'}".as_slice(),
+        b"{[1] = 'hello', [3] = 'world'}",
+        b"{nil, nil, nil, [1] = 'hello', [3] = 'world'}",
+        b"{[3] = 'world', [1] = 'hello'}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice::<[Option<&str>; 3]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected,
+            from_slice::<Vec<Option<&str>>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
-    // Gaps at the end are not filled
-    let expected = [Some("hello"), Some("world"), None];
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', 'world', nil}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{'hello', 'world', [3] = nil}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{'hello', [2] = 'world', [3] = nil}",
-            LuaFormat::Value,
-            MAX_DEPTH
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[1] = 'hello', [2] = 'world', [3] = nil}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    // Gaps at the end are not filled unless explicitly provided
+    let expected = vec![Some("hello"), Some("world"), None];
+    for b in [
+        b"{'hello', 'world', nil}".as_slice(),
+        b"{'hello', 'world', [3] = nil}",
+        b"{'hello', [2] = 'world', [3] = nil}",
+        b"{[1] = 'hello', [2] = 'world', [3] = nil}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice::<[Option<&str>; 3]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected,
+            from_slice::<Vec<Option<&str>>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
     assert!(
         from_slice::<[Option<&str>; 3]>(b"{'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)
