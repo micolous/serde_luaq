@@ -404,7 +404,12 @@ impl LuaValue<'_> {
             LuaValue::Number(LuaNumber::Integer(n)) => Unexpected::Signed(*n),
             LuaValue::Number(LuaNumber::Float(n)) => Unexpected::Float(*n),
             LuaValue::String(s) => Unexpected::Bytes(s),
-            LuaValue::Table(_) => Unexpected::Map,
+            LuaValue::Table(t) => match SeqDeserializer::is_seq(t) {
+                SeqType::Map => Unexpected::Map,
+                SeqType::HasExplicitNumericKeys
+                | SeqType::OnlyNumberValues
+                | SeqType::OnlyValues => Unexpected::Seq,
+            },
         }
     }
 }
@@ -907,7 +912,7 @@ impl<'de> serde::Deserializer<'de> for LuaTableWrapper<'de> {
             _ => {
                 return Err(serde::de::Error::invalid_value(
                     Unexpected::Map,
-                    &"table with an explicit key",
+                    &"table with an explicit string key",
                 ));
             }
         };
