@@ -204,7 +204,10 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_unit(visitor)
+        match self {
+            LuaValue::Table(t) if t.is_empty() => visitor.visit_unit(),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Error>
