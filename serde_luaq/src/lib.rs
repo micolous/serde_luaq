@@ -81,7 +81,7 @@
 //! | `number`  | [`LuaValue::Number`][]  | [`LuaNumber`][] ([see note](#numbers))               |
 //! | ...`float` subtype   | [`LuaNumber::Float`][]   | [`f64`][]              |
 //! | ...`integer` subtype | [`LuaNumber::Integer`][] | [`i64`][]              |
-//! | `table`   | [`LuaValue::Table`][]   | [`BTreeMap`][std::collections::BTreeMap], [`HashMap`][std::collections::HashMap], [`Vec<T>`] ([see note](#tables))|
+//! | `table`   | [`LuaValue::Table`][]   | [`BTreeMap`][std::collections::BTreeMap], [`HashMap`][std::collections::HashMap], [`Vec<T>`], `struct` ([see note](#tables)) |
 //!
 //! The [`peg` deserialisers](#peg-deserialiser) will always produce a [`LuaValue`][].
 //!
@@ -253,6 +253,7 @@
 //! ```
 //!
 //! If you're working with a sparse table, it's probably better to handle it as a map (see below).
+//! This works everywhere but as a [flattened field's map value type](#flattening).
 //!
 //! #### Tables as maps in Serde (BTreeMap/HashMap)
 //!
@@ -304,8 +305,8 @@
 //!
 //! #### Tables as structs
 //!
-//! When deserialising a table as a `struct`, all keys must be valid [RFC 3629 strings](#strings) or
-//! [Lua identifiers][LuaTableEntry::NameValue].
+//! When deserialising a table as a `struct`, all keys must be written as valid
+//! [RFC 3629 strings](#strings) or [Lua identifiers][LuaTableEntry::NameValue].
 //!
 //! Unicode identifiers (`LUA_UCID`) and other locale-specific identifiers are not supported, even
 //! if they would be valid Rust identifiers. If used in a table key, these must be written as a
@@ -316,6 +317,69 @@
 //! ```
 //!
 //! [Serde does not support numeric keys in structs][serde-num-keys].
+//!
+//! #### Flattening
+//!
+//! [`#[serde(flatten)]`][flatten] can be used with a map field:
+//!
+//! ```rust
+//! # use std::collections::BTreeMap;
+//! # use serde::Deserialize;
+//! # use serde_luaq::{Error, LuaFormat, from_slice};
+//! # fn main() -> Result<(), Error> {
+//! #[derive(Deserialize, Debug, PartialEq)]
+//! struct Flatten {
+//!     version: i32,
+//!     #[serde(flatten)]
+//!     entries: BTreeMap<String, i64>,
+//! }
+//!
+//! let lua = br#"{
+//!     version = 1,
+//!     example = 2,
+//!     hello = 4,
+//! }"#;
+//!
+//! assert_eq!(
+//!     Flatten { version: 1, entries: BTreeMap::from([
+//!         ("example".to_string(), 2),
+//!         ("hello".to_string(), 4),
+//!     ])},
+//!     from_slice(lua, LuaFormat::Value, 16)?
+//! );
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! If a flattened field's value is a table of only implicitly-keyed and/or numerically-keyed
+//! entries, it can **only** go into a [`Vec`][] field (eg: `BTreeMap<String, Vec<i64>>`), and not a
+//! nested map (eg: `BTreeMap<String, BTreeMap<i64, i64>>`).
+//!
+//! This is because Serde tries to handle these as an "any" type, and this library forces anything
+//! that looks like an array or sparse array to be treated as an array.
+//!
+//! ### Enums
+//!
+//! When deserialising, `enum`s may be represented multiple ways:
+//!
+//! ```rust
+//! enum E {
+//!     /// `"Unit"` or `{["Unit"] = {}}`
+//!     Unit,
+//!
+//!     /// `{["NewType"] = 1}`
+//!     NewType(i64),
+//!
+//!     /// `{["Tuple"] = {1,2}}` or `{["Tuple"] = {[1]=1,[2]=2}}`
+//!     Tuple(i64, i64),
+//!
+//!     /// `{["Struct"] = {["a"] = 1}`
+//!     Struct { a: i64 },
+//! }
+//! ```
+//!
+//! [Like with tables](#tables-as-structs), if a variant's name is a valid Lua identifier, tables
+//! may be keyed with an identifier instead of a string (eg: `{NewType = 1}`).
 //!
 //! ### Using with older / other versions of Lua
 //!
@@ -400,7 +464,8 @@
 //! ```
 //!
 //! Ideally, [`serde_luaq` shouldn't use significantly more memory than Lua](#large-input-data) to
-//! read the same data structures. If it doesn't, that's a bug. :)
+//! read the same data structures, on a [`LuaValue`][] level (not Serde). If it doesn't, that's a
+//! bug. :)
 //!
 //! ### Maximum table depth
 //!
@@ -464,7 +529,12 @@
 //!
 //! Lua uses similar amounts of memory for such data structures.
 //!
+//! When deserialising into your own data structures with Serde, be mindful that some Rust data
+//! structures can use **significant amounts of memory** if you're not careful. Check out
+//! [the Rust performance book][rust-perf] for tips.
+//!
 //! [comma]: https://github.com/lua/lua/blob/104b0fc7008b1f6b7d818985fbbad05cd37ee654/testes/literals.lua#L298-L300
+//! [flatten]: https://serde.rs/attr-flatten.html
 //! [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
 //! [`peg`]: https://docs.rs/peg/latest/peg/
 //! [jseval]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval
@@ -472,6 +542,7 @@
 //! [load]: https://www.lua.org/manual/5.4/manual.html#pdf-load
 //! [pil12.1.1]: https://www.lua.org/pil/12.1.1.html
 //! [require]: https://www.lua.org/manual/5.4/manual.html#pdf-require
+//! [rust-perf]: https://nnethercote.github.io/perf-book/type-sizes.html
 //! [Serde]: https://serde.rs/
 //! [serde_bytes]: https://docs.rs/serde_bytes/latest/serde_bytes/
 //! [serde-num-keys]: https://github.com/serde-rs/serde/issues/2358
