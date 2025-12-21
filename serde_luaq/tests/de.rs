@@ -170,18 +170,30 @@ fn enum_variants() {
         Struct { a: u32 },
     }
 
-    // Can't represent bare Unit as script
-    let lua_return = br#"return "Unit""#;
-    let lua_value = br#""Unit""#;
-    let expected = E::Unit;
     assert_eq!(
-        expected,
-        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+        E::Unit,
+        from_slice(b"return 'Unit'", LuaFormat::Return, MAX_DEPTH).unwrap()
     );
     assert_eq!(
-        expected,
-        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+        E::Unit,
+        from_slice(b"return {Unit = {}}", LuaFormat::Return, MAX_DEPTH).unwrap()
     );
+    assert_eq!(
+        E::Unit,
+        from_slice(b"Unit = {}", LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        E::Unit,
+        from_slice(br"'Unit'", LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        E::Unit,
+        from_slice(br"{Unit={}}", LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+
+    assert!(from_slice::<E>(b"return {Unit = nil}", LuaFormat::Return, MAX_DEPTH).is_err());
+    assert!(from_slice::<E>(b"Unit = nil", LuaFormat::Script, MAX_DEPTH).is_err());
+    assert!(from_slice::<E>(b"{Unit = nil}", LuaFormat::Value, MAX_DEPTH).is_err());
 
     let lua_return = br#"return {["Newtype"]=1}"#;
     let lua_script = b"Newtype = 1\n";
@@ -1230,7 +1242,8 @@ fn flatten() -> Result {
 
 /// Flattened `enum` parsing quirks.
 ///
-/// Tests based on <https://github.com/serde-rs/serde/issues/1894>, but isn't actually that bug.
+/// Tests based on <https://github.com/serde-rs/serde/issues/1894>, but doesn't actually test for
+/// that bug.
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn enum_parse_quirks() -> Result {
@@ -1259,6 +1272,8 @@ fn enum_parse_quirks() -> Result {
         }
     }"#;
 
+    // Because `Root::choice` is flattened, it doesn't matter whether we deserialise as `Choice` or
+    // `Root`.
     assert_eq!(
         Choice::two {
             item: vec![Item, Item]
@@ -1288,6 +1303,7 @@ fn enum_parse_quirks() -> Result {
         from_slice(b, LuaFormat::Value, MAX_DEPTH).unwrap()
     );
 
+    // Adding an extra layer of nesting shouldn't be allowed.
     let c = br#"{{
         one = { item = {} }
     }}"#;
