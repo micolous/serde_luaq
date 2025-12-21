@@ -1,8 +1,8 @@
 //! Serde deserialisation tests.
 mod common;
-use crate::common::MAX_DEPTH;
+use crate::common::{check, MAX_DEPTH};
 use serde::Deserialize;
-use serde_luaq::{from_slice, LuaFormat, LuaNumber};
+use serde_luaq::{from_slice, LuaFormat, LuaNumber, LuaTableEntry, LuaValue};
 use std::collections::BTreeMap;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -170,18 +170,30 @@ fn enum_variants() {
         Struct { a: u32 },
     }
 
-    // Can't represent bare Unit as script
-    let lua_return = br#"return "Unit""#;
-    let lua_value = br#""Unit""#;
-    let expected = E::Unit;
     assert_eq!(
-        expected,
-        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+        E::Unit,
+        from_slice(b"return 'Unit'", LuaFormat::Return, MAX_DEPTH).unwrap()
     );
     assert_eq!(
-        expected,
-        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+        E::Unit,
+        from_slice(b"return {Unit = {}}", LuaFormat::Return, MAX_DEPTH).unwrap()
     );
+    assert_eq!(
+        E::Unit,
+        from_slice(b"Unit = {}", LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        E::Unit,
+        from_slice(br"'Unit'", LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        E::Unit,
+        from_slice(br"{Unit={}}", LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+
+    assert!(from_slice::<E>(b"return {Unit = nil}", LuaFormat::Return, MAX_DEPTH).is_err());
+    assert!(from_slice::<E>(b"Unit = nil", LuaFormat::Script, MAX_DEPTH).is_err());
+    assert!(from_slice::<E>(b"{Unit = nil}", LuaFormat::Value, MAX_DEPTH).is_err());
 
     let lua_return = br#"return {["Newtype"]=1}"#;
     let lua_script = b"Newtype = 1\n";
@@ -203,6 +215,23 @@ fn enum_variants() {
     let lua_return = br#"return {["Tuple"]={1,2}}"#;
     let lua_script = b"Tuple = {1,2}\n";
     let lua_value = br#"{["Tuple"]={1,2}}"#;
+    let expected = E::Tuple(1, 2);
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_script, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+
+    let lua_return = br#"return {["Tuple"]={1,[2]=2}}"#;
+    let lua_script = b"Tuple = {1,[2]=2}\n";
+    let lua_value = br#"{["Tuple"]={1,[2]=2}}"#;
     let expected = E::Tuple(1, 2);
     assert_eq!(
         expected,
@@ -833,115 +862,145 @@ fn strings() -> Result {
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn arrays() -> Result {
     let expected = ("hello", "world");
-    assert_eq!(
-        expected,
-        from_slice(b"{'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice(
-            b"{[1] = 'hello', [2] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    let expected_a = ["hello", "world"];
+    let expected_v = vec!["hello", "world"];
+    let expected_m = BTreeMap::from([(1, "hello"), (2, "world")]);
+    for b in [
+        b"{'hello', 'world'}".as_slice(),
+        b"{[1] = 'hello', [2] = 'world'}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected_a,
+            from_slice::<[&str; 2]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected_v,
+            from_slice::<Vec<&str>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected_m,
+            from_slice(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
     // Any gaps at the start of the array are filled with nil/None
-    let expected = [None, Some("hello"), Some("world")];
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{nil, 'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[2] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{nil, nil, nil, [2] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[3] = 'world', [2] = 'hello'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    let expected = vec![None, Some("hello"), Some("world")];
+    for b in [
+        b"{nil, 'hello', 'world'}".as_slice(),
+        b"{nil, nil, nil, [2] = 'hello', [3] = 'world'}",
+        b"{[2] = 'hello', [3] = 'world'}",
+        b"{[3] = 'world', [2] = 'hello'}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice::<[Option<&str>; 3]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected,
+            from_slice::<Vec<Option<&str>>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
+
+    // But putting a sequence into a map only fills explicit values, even when numerically keyed
+    let expected_m = BTreeMap::from([(1, None), (2, Some("hello")), (3, Some("world"))]);
+    for b in [
+        b"{nil, 'hello', 'world'}".as_slice(),
+        b"{nil, nil, nil, [2] = 'hello', [3] = 'world'}",
+    ] {
+        assert_eq!(
+            expected_m,
+            from_slice(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
+
+    let expected_m = BTreeMap::from([(2, Some("hello")), (3, Some("world"))]);
+    let expected_m2 = BTreeMap::from([(2, "hello"), (3, "world")]);
+    for b in [
+        b"{[2] = 'hello', [3] = 'world'}".as_slice(),
+        b"{[3] = 'world', [2] = 'hello'}",
+    ] {
+        assert_eq!(
+            expected_m,
+            from_slice(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected_m2,
+            from_slice(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
     // Gaps in the middle of the array are filled with nil/None
-    let expected = [Some("hello"), None, Some("world")];
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', nil, 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', [3] = 'world'}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[1] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{nil, nil, nil, [1] = 'hello', [3] = 'world'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[3] = 'world', [1] = 'hello'}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    let expected = vec![Some("hello"), None, Some("world")];
+    for b in [
+        b"{'hello', nil, 'world'}".as_slice(),
+        b"{nil, nil, nil, [1] = 'hello', [3] = 'world'}",
+        b"{[1] = 'hello', [3] = 'world'}",
+        b"{[3] = 'world', [1] = 'hello'}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice::<[Option<&str>; 3]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected,
+            from_slice::<Vec<Option<&str>>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
-    // Gaps at the end are not filled
-    let expected = [Some("hello"), Some("world"), None];
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(b"{'hello', 'world', nil}", LuaFormat::Value, MAX_DEPTH)?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{'hello', 'world', [3] = nil}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{'hello', [2] = 'world', [3] = nil}",
-            LuaFormat::Value,
-            MAX_DEPTH
-        )?
-    );
-    assert_eq!(
-        expected,
-        from_slice::<[Option<&str>; 3]>(
-            b"{[1] = 'hello', [2] = 'world', [3] = nil}",
-            LuaFormat::Value,
-            MAX_DEPTH,
-        )?
-    );
+    // Gaps at the end are not filled unless explicitly provided
+    let expected = vec![Some("hello"), Some("world"), None];
+    let expected_m = BTreeMap::from([(1, Some("hello")), (2, Some("world")), (3, None)]);
+    for b in [
+        b"{'hello', 'world', nil}".as_slice(),
+        b"{'hello', 'world', [3] = nil}",
+        b"{'hello', [2] = 'world', [3] = nil}",
+        b"{[1] = 'hello', [2] = 'world', [3] = nil}",
+    ] {
+        assert_eq!(
+            expected,
+            from_slice::<[Option<&str>; 3]>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected,
+            from_slice::<Vec<Option<&str>>>(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+        assert_eq!(
+            expected_m,
+            from_slice(b, LuaFormat::Value, MAX_DEPTH)?,
+            "{}",
+            b.escape_ascii()
+        );
+    }
 
     assert!(
         from_slice::<[Option<&str>; 3]>(b"{'hello', 'world'}", LuaFormat::Value, MAX_DEPTH)
@@ -1029,5 +1088,244 @@ fn arrays() -> Result {
         from_slice::<Vec<_>>(b"{[3] = 2.0, 1}", LuaFormat::Value, MAX_DEPTH)?
     );
 
+    Ok(())
+}
+
+/// Tests for `#[serde(flatten)]`
+///
+/// `#[serde(flatten)]` forces serde into the `deserialize_any` path, even if it should use
+/// something more specialised. So, we treat everything that quacks like an array (implicit-keyed
+/// values, and anything with explicit, numeric-only keys) as a `Vec`, so it can go into that type.
+///
+/// Unfortunately this breaks map-like usage of tables in the values of flattened types.
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn flatten() -> Result {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct FlattenVecValue {
+        version: i32,
+        #[serde(flatten)]
+        entries: BTreeMap<String, Vec<B>>,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct FlattenMapValue {
+        version: i32,
+        #[serde(flatten)]
+        entries: BTreeMap<String, BTreeMap<i64, B>>,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct UnflattenVecValue {
+        version: i32,
+        abcd: Vec<B>,
+        efgh: Vec<B>,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct UnflattenMapValue {
+        version: i32,
+        abcd: BTreeMap<i64, B>,
+        efgh: BTreeMap<i64, B>,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct B {
+        a: i32,
+        b: i32,
+    }
+
+    let lua = br#"{
+        ["version"] = 1,
+        ["abcd"] = {
+            { a = 1, b = 2, },
+            { ['a'] = 2, ['b'] = 4, },
+        },
+        ["efgh"] = {
+            { ["a"] = 4, ["b"] = 8, },
+        },
+    }"#;
+
+    // Explicit keys
+    let lua2 = br#"{
+        ["version"] = 1,
+        ["abcd"] = {
+            [1] = { a = 1, b = 2, },
+            [2] = { ['a'] = 2, ['b'] = 4, },
+        },
+        ["efgh"] = {
+            { ["a"] = 4, ["b"] = 8, },
+        },
+    }"#;
+
+    let expected_vec = FlattenVecValue {
+        version: 1,
+        entries: BTreeMap::from([
+            ("abcd".to_string(), vec![B { a: 1, b: 2 }, B { a: 2, b: 4 }]),
+            ("efgh".to_string(), vec![B { a: 4, b: 8 }]),
+        ]),
+    };
+
+    let _expected_map = FlattenMapValue {
+        version: 1,
+        entries: BTreeMap::from([
+            (
+                "abcd".to_string(),
+                BTreeMap::from([(1, B { a: 1, b: 2 }), (2, B { a: 2, b: 4 })]),
+            ),
+            ("efgh".to_string(), BTreeMap::from([(1, B { a: 4, b: 8 })])),
+        ]),
+    };
+
+    let expected_unflatten_vec = UnflattenVecValue {
+        version: 1,
+        abcd: vec![B { a: 1, b: 2 }, B { a: 2, b: 4 }],
+        efgh: vec![B { a: 4, b: 8 }],
+    };
+
+    let expected_unflatten_map = UnflattenMapValue {
+        version: 1,
+        abcd: BTreeMap::from([(1, B { a: 1, b: 2 }), (2, B { a: 2, b: 4 })]),
+        efgh: BTreeMap::from([(1, B { a: 4, b: 8 })]),
+    };
+
+    let expected_raw = LuaValue::Table(vec![
+        LuaTableEntry::KeyValue(Box::new((
+            LuaValue::String(b"version".into()),
+            LuaValue::integer(1),
+        ))),
+        LuaTableEntry::KeyValue(Box::new((
+            LuaValue::String(b"abcd".into()),
+            LuaValue::Table(vec![
+                LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                    LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::integer(1)))),
+                    LuaTableEntry::NameValue(Box::new(("b".into(), LuaValue::integer(2)))),
+                ]))),
+                LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                    LuaTableEntry::KeyValue(Box::new((
+                        LuaValue::String(b"a".into()),
+                        LuaValue::integer(2),
+                    ))),
+                    LuaTableEntry::KeyValue(Box::new((
+                        LuaValue::String(b"b".into()),
+                        LuaValue::integer(4),
+                    ))),
+                ]))),
+            ]),
+        ))),
+        LuaTableEntry::KeyValue(Box::new((
+            LuaValue::String(b"efgh".into()),
+            LuaValue::Table(vec![LuaTableEntry::Value(Box::new(LuaValue::Table(vec![
+                LuaTableEntry::KeyValue(Box::new((
+                    LuaValue::String(b"a".into()),
+                    LuaValue::integer(4),
+                ))),
+                LuaTableEntry::KeyValue(Box::new((
+                    LuaValue::String(b"b".into()),
+                    LuaValue::integer(8),
+                ))),
+            ])))]),
+        ))),
+    ]);
+
+    check(lua, expected_raw);
+
+    assert_eq!(expected_vec, from_slice(lua, LuaFormat::Value, MAX_DEPTH)?);
+    assert_eq!(expected_vec, from_slice(lua2, LuaFormat::Value, MAX_DEPTH)?);
+
+    assert_eq!(
+        expected_unflatten_vec,
+        from_slice(lua, LuaFormat::Value, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected_unflatten_vec,
+        from_slice(lua2, LuaFormat::Value, MAX_DEPTH)?
+    );
+
+    assert_eq!(
+        expected_unflatten_map,
+        from_slice(lua, LuaFormat::Value, MAX_DEPTH)?
+    );
+    assert_eq!(
+        expected_unflatten_map,
+        from_slice(lua2, LuaFormat::Value, MAX_DEPTH)?
+    );
+
+    // FIXME: broken due to some issue
+    // assert_eq!(expected_map, from_slice(lua, LuaFormat::Value, MAX_DEPTH)?);
+
+    Ok(())
+}
+
+/// Flattened `enum` parsing quirks.
+///
+/// Tests based on <https://github.com/serde-rs/serde/issues/1894>, but doesn't actually test for
+/// that bug.
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn enum_parse_quirks() -> Result {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Root {
+        #[serde(flatten)]
+        choice: Choice,
+    }
+
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Deserialize, PartialEq)]
+    enum Choice {
+        one { item: Item },
+        two { item: Vec<Item> },
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Item;
+
+    let a = br#"{
+        two = {
+            item = {
+                {},
+                {},
+            }
+        }
+    }"#;
+
+    // Because `Root::choice` is flattened, it doesn't matter whether we deserialise as `Choice` or
+    // `Root`.
+    assert_eq!(
+        Choice::two {
+            item: vec![Item, Item]
+        },
+        from_slice(a, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        Root {
+            choice: Choice::two {
+                item: vec![Item, Item]
+            }
+        },
+        from_slice(a, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+
+    let b = br#"{
+        one = { item = {} }
+    }"#;
+    assert_eq!(
+        Choice::one { item: Item },
+        from_slice(b, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        Root {
+            choice: Choice::one { item: Item }
+        },
+        from_slice(b, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+
+    // Adding an extra layer of nesting shouldn't be allowed.
+    let c = br#"{{
+        one = { item = {} }
+    }}"#;
+
+    assert!(from_slice::<Root>(c, LuaFormat::Value, MAX_DEPTH).is_err());
+    assert!(from_slice::<Choice>(c, LuaFormat::Value, MAX_DEPTH).is_err());
     Ok(())
 }

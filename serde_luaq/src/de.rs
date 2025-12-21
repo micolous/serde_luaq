@@ -67,7 +67,7 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
                 Cow::Borrowed(b) => visitor.visit_borrowed_bytes(b),
                 Cow::Owned(b) => visitor.visit_byte_buf(b),
             },
-            LuaValue::Table(v) => LuaTableWrapper(v.into_iter()).deserialize_seq(visitor),
+            LuaValue::Table(v) => LuaTableWrapper(v).deserialize_any(visitor),
         }
     }
 
@@ -107,7 +107,7 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
     {
         match self {
             LuaValue::Table(value) => {
-                LuaTableWrapper(value.into_iter()).deserialize_enum(name, variants, visitor)
+                LuaTableWrapper(value).deserialize_enum(name, variants, visitor)
             }
             LuaValue::String(variant) => visitor.visit_enum(EnumDeserializer {
                 variant,
@@ -195,7 +195,7 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
         V: Visitor<'de>,
     {
         match self {
-            LuaValue::Nil => visitor.visit_unit(),
+            LuaValue::Table(t) if t.is_empty() => visitor.visit_unit(),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -204,7 +204,10 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_unit(visitor)
+        match self {
+            LuaValue::Table(t) if t.is_empty() => visitor.visit_unit(),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Error>
@@ -241,22 +244,22 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
         V: Visitor<'de>,
     {
         match self {
-            LuaValue::Table(v) => LuaTableWrapper(v.into_iter()).deserialize_any(visitor),
+            LuaValue::Table(v) => LuaTableWrapper(v).deserialize_map(visitor),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
 
     fn deserialize_struct<V>(
         self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
+        name: &'static str,
+        fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
         match self {
-            LuaValue::Table(v) => LuaTableWrapper(v.into_iter()).deserialize_any(visitor),
+            LuaValue::Table(v) => LuaTableWrapper(v).deserialize_struct(name, fields, visitor),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -371,7 +374,7 @@ impl<'de> VariantAccess<'de> for VariantDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Some(LuaValue::Table(v)) => LuaTableWrapper(v.into_iter()).deserialize_any(visitor),
+            Some(LuaValue::Table(v)) => LuaTableWrapper(v).deserialize_any(visitor),
             Some(other) => Err(serde::de::Error::invalid_type(
                 other.unexpected(),
                 &"struct variant",
@@ -401,28 +404,13 @@ impl LuaValue<'_> {
             LuaValue::Number(LuaNumber::Integer(n)) => Unexpected::Signed(*n),
             LuaValue::Number(LuaNumber::Float(n)) => Unexpected::Float(*n),
             LuaValue::String(s) => Unexpected::Bytes(s),
-            LuaValue::Table(_) => Unexpected::Map,
-        }
-    }
-}
-
-impl LuaTableEntry<'_> {
-    #[cold]
-    fn invalid_type<E>(&self, exp: &dyn Expected) -> E
-    where
-        E: serde::de::Error,
-    {
-        serde::de::Error::invalid_type(self.unexpected(), exp)
-    }
-
-    #[cold]
-    fn unexpected(&self) -> Unexpected<'_> {
-        match self {
-            LuaTableEntry::NameValue(_) | LuaTableEntry::KeyValue(_) => Unexpected::Map,
-            LuaTableEntry::Value(_)
-            | LuaTableEntry::NumberValue(_)
-            | LuaTableEntry::BooleanValue(_)
-            | LuaTableEntry::NilValue => Unexpected::Seq,
+            LuaValue::Table(t) => match SeqDeserializer::is_seq(t) {
+                SeqType::Map => Unexpected::Map,
+                SeqType::HasExplicitNumericKeys
+                | SeqType::OnlyNumberValues
+                | SeqType::OnlyValues => Unexpected::Seq,
+                SeqType::Empty => Unexpected::Unit,
+            },
         }
     }
 }
@@ -441,16 +429,29 @@ impl MapKeyDeserializer<'_> {
 enum SeqDeserializer<'a> {
     LuaValue(vec::IntoIter<LuaValue<'a>>),
     LuaNumber(vec::IntoIter<LuaNumber>),
+    Empty,
+}
+
+#[derive(Debug)]
+enum SeqType {
+    Map,
+    HasExplicitNumericKeys,
+    OnlyNumberValues,
+    OnlyValues,
+    Empty,
 }
 
 impl<'a> SeqDeserializer<'a> {
-    /// Create a new sequence deserializer.
-    fn new(vec: Vec<LuaTableEntry<'a>>) -> Result<Self, Error> {
-        // Check to see if we need to re-number things
+    /// Find what sort of sequence a table is.
+    fn is_seq(vec: &[LuaTableEntry<'a>]) -> SeqType {
+        if vec.is_empty() {
+            return SeqType::Empty;
+        }
+
         let mut has_keys = false;
         let mut has_non_number_values = false;
         for entry in vec.iter() {
-            if !matches!(entry, LuaTableEntry::NumberValue(_)) {
+            if !has_non_number_values && !matches!(entry, LuaTableEntry::NumberValue(_)) {
                 has_non_number_values = true;
             }
 
@@ -460,7 +461,7 @@ impl<'a> SeqDeserializer<'a> {
                     LuaTableEntry::KeyValue(b)
                     if matches!(b.0, LuaValue::Number(LuaNumber::Integer(_)))
                 ) {
-                    return Err(entry.invalid_type(&"Table with integer or implicit keys"));
+                    return SeqType::Map;
                 }
 
                 // At least one entry with an explicit integer key.
@@ -469,21 +470,38 @@ impl<'a> SeqDeserializer<'a> {
             }
         }
 
-        if !has_keys {
-            // We can extract all the entries directly.
-            if !has_non_number_values {
-                // We can extract all the numbers directly.
+        if has_keys {
+            SeqType::HasExplicitNumericKeys
+        } else if has_non_number_values {
+            SeqType::OnlyValues
+        } else {
+            SeqType::OnlyNumberValues
+        }
+    }
+
+    /// Create a new sequence deserializer.
+    fn new(vec: Vec<LuaTableEntry<'a>>) -> Result<Self, Error> {
+        // Check to see if we need to re-number things
+        match Self::is_seq(&vec) {
+            SeqType::Map => {
+                return Err(serde::de::Error::invalid_type(
+                    Unexpected::Map,
+                    &"table with only integer or implicit keys",
+                ))
+            }
+            SeqType::OnlyNumberValues => {
                 let vec: Vec<LuaNumber> = vec
                     .into_iter()
                     .filter_map(|e| e.move_number_value())
                     .collect();
-
                 return Ok(SeqDeserializer::LuaNumber(vec.into_iter()));
-            } else {
+            }
+            SeqType::OnlyValues => {
                 let vec: Vec<LuaValue<'a>> = vec.into_iter().map(|e| e.move_value()).collect();
-
                 return Ok(SeqDeserializer::LuaValue(vec.into_iter()));
             }
+            SeqType::Empty => return Ok(SeqDeserializer::Empty),
+            SeqType::HasExplicitNumericKeys => (),
         }
 
         // Scan over the entire Vec, and overwrite entries.
@@ -549,6 +567,7 @@ impl<'a> SeqDeserializer<'a> {
         match self {
             Self::LuaNumber(i) => i.len(),
             Self::LuaValue(i) => i.len(),
+            Self::Empty => 0,
         }
     }
 }
@@ -570,6 +589,8 @@ impl<'de> SeqAccess<'de> for SeqDeserializer<'de> {
                 Some(value) => seed.deserialize(value).map(Some),
                 None => Ok(None),
             },
+
+            Self::Empty => Ok(None),
         }
     }
 
@@ -584,6 +605,8 @@ impl<'de> SeqAccess<'de> for SeqDeserializer<'de> {
                 (lower, Some(upper)) if lower == upper => Some(upper),
                 _ => None,
             },
+
+            Self::Empty => Some(0),
         }
     }
 }
@@ -810,22 +833,40 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
 
 /// Internal wrapper for [`Vec<LuaTableEntry>`] that we can implement
 /// [`serde::Deserializer`] on.
-struct LuaTableWrapper<'a, T>(T)
-where
-    T: Iterator<Item = LuaTableEntry<'a>> + ExactSizeIterator;
+struct LuaTableWrapper<'a>(Vec<LuaTableEntry<'a>>);
 
-impl<'de, T> serde::Deserializer<'de> for LuaTableWrapper<'de, T>
-where
-    T: Iterator<Item = LuaTableEntry<'de>> + ExactSizeIterator,
-{
+impl<'de> serde::Deserializer<'de> for LuaTableWrapper<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
+        if matches!(SeqDeserializer::is_seq(&self.0), SeqType::Map) {
+            self.deserialize_map(visitor)
+        } else {
+            self.deserialize_seq(visitor)
+        }
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_map(visitor)
+    }
+
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let len = self.0.len();
-        let mut deserializer: MapDeserializer<'_, T> = MapDeserializer::new(self.0);
+        let mut deserializer = MapDeserializer::new(self.0.into_iter());
         let map = visitor.visit_map(&mut deserializer)?;
         let remaining = deserializer.iter.len();
         if remaining == 0 {
@@ -834,6 +875,24 @@ where
             Err(serde::de::Error::invalid_length(
                 len,
                 &"fewer elements in map",
+            ))
+        }
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let len = self.0.len();
+        let mut deserializer = SeqDeserializer::new(self.0)?;
+        let map = visitor.visit_seq(&mut deserializer)?;
+        let remaining = deserializer.len();
+        if remaining == 0 {
+            Ok(map)
+        } else {
+            Err(serde::de::Error::invalid_length(
+                len,
+                &"fewer elements in seq",
             ))
         }
     }
@@ -847,30 +906,29 @@ where
     where
         V: Visitor<'de>,
     {
-        let (variant, value) = match self.0.next() {
-            Some(LuaTableEntry::KeyValue(b)) if matches!(&b.0, LuaValue::String(_)) => {
+        if self.0.len() != 1 {
+            return Err(serde::de::Error::invalid_value(
+                Unexpected::Map,
+                &"table with a single entry",
+            ));
+        }
+
+        let (variant, value) = match self.0.remove(0) {
+            LuaTableEntry::KeyValue(b) if matches!(&b.0, LuaValue::String(_)) => {
                 let (k, v) = *b;
                 let LuaValue::String(k) = k else {
                     unreachable!();
                 };
                 (k, v)
             }
-            Some(LuaTableEntry::NameValue(b)) => (to_utf8_cow(b.0), b.1),
+            LuaTableEntry::NameValue(b) => (to_utf8_cow(b.0), b.1),
             _ => {
                 return Err(serde::de::Error::invalid_value(
                     Unexpected::Map,
-                    &"map with a single key",
+                    &"table with an explicit string key",
                 ));
             }
         };
-
-        // enums are encoded in json as maps with a single key:value pair
-        if self.0.next().is_some() {
-            return Err(serde::de::Error::invalid_value(
-                Unexpected::Map,
-                &"map with a single key",
-            ));
-        }
 
         visitor.visit_enum(EnumDeserializer {
             variant,
@@ -888,8 +946,8 @@ where
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct identifier
+        bytes byte_buf option unit unit_struct newtype_struct tuple
+        tuple_struct identifier
     }
 }
 
