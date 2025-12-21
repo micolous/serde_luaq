@@ -195,7 +195,7 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
         V: Visitor<'de>,
     {
         match self {
-            LuaValue::Nil => visitor.visit_unit(),
+            LuaValue::Table(t) if t.is_empty() => visitor.visit_unit(),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -409,6 +409,7 @@ impl LuaValue<'_> {
                 SeqType::HasExplicitNumericKeys
                 | SeqType::OnlyNumberValues
                 | SeqType::OnlyValues => Unexpected::Seq,
+                SeqType::Empty => Unexpected::Unit,
             },
         }
     }
@@ -428,6 +429,7 @@ impl MapKeyDeserializer<'_> {
 enum SeqDeserializer<'a> {
     LuaValue(vec::IntoIter<LuaValue<'a>>),
     LuaNumber(vec::IntoIter<LuaNumber>),
+    Empty,
 }
 
 #[derive(Debug)]
@@ -436,11 +438,16 @@ enum SeqType {
     HasExplicitNumericKeys,
     OnlyNumberValues,
     OnlyValues,
+    Empty,
 }
 
 impl<'a> SeqDeserializer<'a> {
     /// Find what sort of sequence a table is.
     fn is_seq(vec: &[LuaTableEntry<'a>]) -> SeqType {
+        if vec.is_empty() {
+            return SeqType::Empty;
+        }
+
         let mut has_keys = false;
         let mut has_non_number_values = false;
         for entry in vec.iter() {
@@ -493,6 +500,7 @@ impl<'a> SeqDeserializer<'a> {
                 let vec: Vec<LuaValue<'a>> = vec.into_iter().map(|e| e.move_value()).collect();
                 return Ok(SeqDeserializer::LuaValue(vec.into_iter()));
             }
+            SeqType::Empty => return Ok(SeqDeserializer::Empty),
             SeqType::HasExplicitNumericKeys => (),
         }
 
@@ -559,6 +567,7 @@ impl<'a> SeqDeserializer<'a> {
         match self {
             Self::LuaNumber(i) => i.len(),
             Self::LuaValue(i) => i.len(),
+            Self::Empty => 0,
         }
     }
 }
@@ -580,6 +589,8 @@ impl<'de> SeqAccess<'de> for SeqDeserializer<'de> {
                 Some(value) => seed.deserialize(value).map(Some),
                 None => Ok(None),
             },
+
+            Self::Empty => Ok(None),
         }
     }
 
@@ -594,6 +605,8 @@ impl<'de> SeqAccess<'de> for SeqDeserializer<'de> {
                 (lower, Some(upper)) if lower == upper => Some(upper),
                 _ => None,
             },
+
+            Self::Empty => Some(0),
         }
     }
 }
