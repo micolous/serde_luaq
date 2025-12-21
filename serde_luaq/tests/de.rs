@@ -229,6 +229,23 @@ fn enum_variants() {
         from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
     );
 
+    let lua_return = br#"return {["Tuple"]={1,[2]=2}}"#;
+    let lua_script = b"Tuple = {1,[2]=2}\n";
+    let lua_value = br#"{["Tuple"]={1,[2]=2}}"#;
+    let expected = E::Tuple(1, 2);
+    assert_eq!(
+        expected,
+        from_slice(lua_return, LuaFormat::Return, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_script, LuaFormat::Script, MAX_DEPTH).unwrap()
+    );
+    assert_eq!(
+        expected,
+        from_slice(lua_value, LuaFormat::Value, MAX_DEPTH).unwrap()
+    );
+
     let lua_return = br#"return {["Struct"]={["a"]=1}}"#;
     let lua_script = br#"Struct = {["a"]=1}"#;
     let lua_value = br#"{["Struct"]={["a"]=1}}"#;
