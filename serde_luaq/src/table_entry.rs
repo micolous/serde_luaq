@@ -697,9 +697,19 @@ mod test {
                 LuaTableEntry::BooleanValue(v),
             );
 
-            // Conversion
+            // Conversion should use the optimal variant
             assert!(matches!(
                 LuaTableEntry::from(v), LuaTableEntry::BooleanValue(a) if a == v));
+
+            // Conversion with LuaValue
+            assert_eq!(
+                LuaValue::try_from(LuaTableEntry::BooleanValue(v)).unwrap(),
+                LuaValue::Boolean(v),
+            );
+            assert_eq!(
+                LuaValue::try_from(LuaTableEntry::Value(Box::new(LuaValue::Boolean(v)))).unwrap(),
+                LuaValue::Boolean(v),
+            );
 
             // Inequality
             assert_ne!(
@@ -746,6 +756,22 @@ mod test {
             LuaTableEntry::Value(Box::new(LuaValue::Nil)),
         );
         assert_eq!(LuaTableEntry::NilValue, LuaTableEntry::NilValue);
+
+        // Conversion should use the optimal variant
+        assert!(matches!(
+            LuaTableEntry::from(LuaValue::Nil),
+            LuaTableEntry::NilValue
+        ));
+
+        // Conversion with LuaValue
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::NilValue).unwrap(),
+            LuaValue::Nil,
+        );
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::Value(Box::new(LuaValue::Nil))).unwrap(),
+            LuaValue::Nil,
+        );
     }
 
     #[test]
@@ -769,12 +795,23 @@ mod test {
             LuaTableEntry::NumberValue(LuaNumber::Integer(-123)),
         );
 
+        // Conversion should use the optimal variant
         assert!(matches!(
             LuaTableEntry::from(123),
             LuaTableEntry::NumberValue(LuaNumber::Integer(n)) if n == 123));
         assert!(matches!(
             LuaTableEntry::from(123.456),
             LuaTableEntry::NumberValue(LuaNumber::Float(n)) if n == 123.456));
+
+        // Conversion with LuaValue
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::NumberValue(LuaNumber::Integer(123))).unwrap(),
+            LuaValue::integer(123),
+        );
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::Value(Box::new(LuaValue::integer(123)))).unwrap(),
+            LuaValue::integer(123),
+        );
     }
 
     #[test]
