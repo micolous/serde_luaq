@@ -1,9 +1,11 @@
+//! > **Note:** this library is still a work in progress, and there are no API stability guarantees.
+//!
 //! `serde_luaq` is a library for deserialising (and eventually, serialising) simple, JSON-like data
 //! structures from Lua 5.4 source code, _without requiring Lua itself_.
 //!
 //! The goal is to be able to read state from software (mostly games) which is serialised using
-//! [Lua `%q` formatting][format] (and similar techniques) _without_ requiring arbitrary code
-//! execution.
+//! [Lua `%q` formatting][format] (and similar techniques)
+//! [_without_ requiring arbitrary code execution](#security).
 //!
 //! This library consists of four parts:
 //!
@@ -381,31 +383,6 @@
 //! [Like with tables](#tables-as-structs), if a variant's name is a valid Lua identifier, tables
 //! may be keyed with an identifier instead of a string (eg: `{NewType = 1}`).
 //!
-//! ### Using with older / other versions of Lua
-//!
-//! As `serde_luaq` does not execute Lua code, there are only a small number of compatibility
-//! issues:
-//!
-//! * **Lua 5.3** over/underflows decimal integers that don't fit in a [`i64`][], rather than
-//!   coercing to [`f64`][].
-//!
-//!   Hexadecimal integers over/underflow in both Lua 5.3 and 5.4.
-//!
-//! * **Lua 5.2 and earlier, and Luau** always use [`f64`][] for numbers, and do not have an integer
-//!   subtype.
-//!
-//! * **Lua 5.1 and earlier** allow locale-dependent letters in identifiers (rather than just
-//!   basic Latin), and `goto` is not a reserved keyword.
-//!
-//!   This affects [table entries in the form `{foo = bar}`][LuaTableEntry::NameValue]
-//!   and parsing in script mode.
-//!
-//! * **Luau** also adds type annotations, binary integer literals, separators for all integer
-//!   literals and string interpolation. None of these features are supported by `serde_luaq`.
-//!
-//! * **Ravi** adds type annotations and some other language features, which aren't supported by
-//!   `serde_luaq`.
-//!
 //! ## Security
 //!
 //! While using Lua as a serialisation format is convenient to work with in Lua,
@@ -469,9 +446,10 @@
 //!
 //! ### Maximum table depth
 //!
-//! The maximum table depth argument (`max_depth`) controls how deeply nested a table can be before
-//! being rejected by `serde_luaq`. Set this to the maximum depth of tables that you expect in your
-//! input data.
+//! The `max_depth` argument controls how deeply nested a table can be before being rejected by
+//! `serde_luaq`.
+//!
+//! Set this to the maximum depth of tables that you expect in your input data.
 //!
 //! For example:
 //!
@@ -533,7 +511,55 @@
 //! structures can use **significant amounts of memory** if you're not careful. Check out
 //! [the Rust performance book][rust-perf] for tips.
 //!
+//! ## Lua version compatibility
+//!
+//! `serde_luaq` targets syntax compatibility with Lua 5.4.
+//!
+//! As it does not execute Lua code, there are only a small number of compatibility issues with
+//! older and other versions of Lua.
+//!
+//! ### Lua 5.3
+//!
+//! **Lua 5.3** over/underflows decimal integers that don't fit in a [`i64`][], rather than
+//! coercing to [`f64`][].
+//!
+//! Hexadecimal integers over/underflow in both Lua 5.3 and 5.4.
+//!
+//! ### Lua 5.2
+//!
+//! **Lua 5.2 and earlier, and Luau** always use [`f64`][] for numbers, and do not have an integer
+//! subtype.
+//!
+//! ### Lua 5.1 and earlier
+//!
+//! * `serde_luaq` only allows basic Latin letters in identifiers.
+//!
+//!   Lua 5.1 and earlier allows locale-dependent letters.
+//!
+//! * `serde_luaq` does not allow `goto` as an identifier name.
+//!
+//!   This is not a reserved keyword in Lua 5.1 and earlier.
+//!
+//! * `serde_luaq` allows empty statements in script mode.
+//!
+//!   [This is not allowed in Lua 5.1][empty-statements].
+//!
+//! ### Luau
+//!
+//! Like [Lua 5.2](#lua-5.2), **Luau** uses [`f64`][] for numbers.
+//!
+//! It also adds type annotations, binary integer literals, separators for all integer literals and
+//! string interpolation.
+//!
+//! None of these features are supported by `serde_luaq`.
+//!
+//! ### Ravi
+//!
+//! **Ravi** adds type annotations and some other language features, which aren't supported by
+//! `serde_luaq`.
+//!
 //! [comma]: https://github.com/lua/lua/blob/104b0fc7008b1f6b7d818985fbbad05cd37ee654/testes/literals.lua#L298-L300
+//! [empty-statements]: https://www.lua.org/manual/5.1/manual.html#2.4.1
 //! [flatten]: https://serde.rs/attr-flatten.html
 //! [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
 //! [`peg`]: https://docs.rs/peg/latest/peg/
