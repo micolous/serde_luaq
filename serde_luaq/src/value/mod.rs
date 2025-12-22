@@ -125,8 +125,7 @@ pub enum LuaValue<'a> {
     ///
     /// * Table keys may be set to _any_ value, including `nil` and [`NaN`][f64::NAN].
     ///
-    /// * Table values may be set to `nil`. While Lua's manual claims these are treated as missing,
-    ///   it is possible for `%q`-formatted strings to contain such values.
+    /// * Table values may be set to `nil`.
     ///
     /// When using `serde`, you can still use a table to populate a [`BTreeMap`] or [`Vec`].
     ///
@@ -506,8 +505,6 @@ pub(crate) fn from_utf8_cow_lossy(v: Cow<'_, [u8]>) -> Cow<'_, str> {
 }
 
 /// Converts a `Cow<'a, str>` into a `Cow<'a, [u8]>` while avoiding copying.
-///
-/// This does not attempt to reverse [`maybe_hex_string()`].
 pub(crate) fn to_utf8_cow(v: Cow<'_, str>) -> Cow<'_, [u8]> {
     match v {
         Cow::Borrowed(v) => Cow::Borrowed(v.as_bytes()),
