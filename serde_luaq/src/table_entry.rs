@@ -13,13 +13,50 @@ use std::{borrow::Cow, str::from_utf8};
 
 /// Lua [table][LuaValue::Table] entry.
 ///
-/// Reference: <https://www.lua.org/manual/5.4/manual.html#3.4.9>
-#[derive(Debug, Clone, PartialEq)]
+/// This type is the same size as [LuaNumber][] (16 bytes), but some variants require additional
+/// heap allocations in a [`Box`][] (detailed below).
+///
+/// Lua syntax reference: <https://www.lua.org/manual/5.4/manual.html#3.4.9>
+#[derive(Debug, Clone)]
 pub enum LuaTableEntry<'a> {
     /// Table entry in the form: `["foo"] = "bar"` or `[123] = "bar"`
+    ///
+    /// ## Memory requirements
+    ///
+    /// This variant requires an additional heap allocation for 2 [`LuaValue`][]s, which is a
+    /// minimum of 64 bytes on 64-bit systems, or 48 bytes on 32-bit systems.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use serde_luaq::{LuaTableEntry, LuaValue};
+    /// // {["foo"] = "bar"}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::KeyValue(Box::new((
+    ///         LuaValue::String(b"foo".into()),
+    ///         LuaValue::String(b"bar".into()),
+    ///     ))),
+    /// ]);
+    ///
+    /// // {[123] = "bar"}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::KeyValue(Box::new((
+    ///         LuaValue::integer(123),
+    ///         LuaValue::String(b"bar".into()),
+    ///     ))),
+    /// ]);
+    /// ```
     KeyValue(Box<(LuaValue<'a>, LuaValue<'a>)>),
 
     /// Table entry in the form: `foo = "bar"`
+    ///
+    /// ## Memory requirements
+    ///
+    /// This variant requires an additional heap allocation for the identifier name and
+    /// [`LuaValue`][]. This should be slightly smaller than a
+    /// [`KeyValue`][LuaTableEntry::KeyValue].
+    ///
+    /// ## Reference
     ///
     /// > A field of the form `name = exp` is equivalent to `["name"] = exp`.
     ///
@@ -31,31 +68,140 @@ pub enum LuaTableEntry<'a> {
     ///
     /// This is represented as a `str`, as these are valid RFC 3629 UTF-8 on
     /// Lua 5.2 and later with default build settings (`LUA_UCID = 0`).
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use serde_luaq::{LuaTableEntry, LuaValue};
+    /// // {foo = "bar"}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::NameValue(Box::new((
+    ///         "foo".into(),
+    ///         LuaValue::String(b"bar".into()),
+    ///     ))),
+    /// ]);
+    ///
+    /// // NameValue and KeyValue are considered equal
+    /// // ie: {a = 1} == {['a'] = 1}
+    /// assert_eq!(
+    ///     LuaTableEntry::KeyValue(Box::new((
+    ///         LuaValue::String(b"a".into()), LuaValue::integer(1),
+    ///     ))),
+    ///     LuaTableEntry::NameValue(Box::new((
+    ///         "a".into(), LuaValue::integer(1),
+    ///     ))),
+    /// );
+    /// ```
     NameValue(Box<(Cow<'a, str>, LuaValue<'a>)>),
 
     /// Bare table entry without a key: `"bar"`
     ///
+    /// ## Memory requirements
+    ///
+    /// This variant requires an additional heap allocation for a [`LuaValue`][], which is a
+    /// minimum of 32 bytes on 64-bit systems, or 24 bytes on 32-bit systems.
+    ///
+    /// If the contained value is [`nil`][LuaTableEntry::NilValue],
+    /// [`bool`][LuaTableEntry::BooleanValue] or [`LuaNumber`][LuaTableEntry::NumberValue], prefer
+    /// using their respective specialised variants (linked inline, and detailed below), as they
+    /// avoid this heap allocation.
+    ///
+    /// These variants are considered equal with their [`Value`][LuaTableEntry::Value] equivalents.
+    ///
+    /// The `peg` parsers will try to use those variants where possible.
+    ///
+    /// ## Reference
+    ///
     /// > fields of the form `exp` are equivalent to `[i] = exp`, where `i`
     /// > are consecutive numerical integers, starting with 1. Fields in the
     /// > other formats do not affect this counting.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use serde_luaq::{LuaNumber, LuaTableEntry, LuaValue};
+    /// // {"bar"}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::Value(Box::new(
+    ///         LuaValue::String(b"bar".into()),
+    ///     )),
+    /// ]);
+    /// ```
     Value(Box<LuaValue<'a>>),
 
     /// Bare numeric table entry without a key: `1234`.
     ///
-    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
-    /// for [`LuaNumber`][] literals that avoids an extra heap allocation.
+    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value] for [`LuaNumber`][]
+    /// literals that avoids an extra heap allocation. These are considered equal with their
+    /// [`Value`][LuaTableEntry::Value] equivalents.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use serde_luaq::{LuaNumber, LuaTableEntry, LuaValue};
+    /// // {123}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::NumberValue(LuaNumber::Integer(123)),
+    /// ]);
+    ///
+    /// // Different variants of the same value are considered equal
+    /// assert_eq!(
+    ///     LuaTableEntry::Value(Box::new(
+    ///         LuaValue::integer(123)
+    ///     )),
+    ///     LuaTableEntry::NumberValue(
+    ///         LuaNumber::Integer(123)
+    ///     ),
+    /// );
+    /// ```
     NumberValue(LuaNumber),
 
     /// Bare boolean table entry without a key: `true`.
     ///
-    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
-    /// for [`bool`][] literals that avoids an extra heap allocation.
+    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value] for [`bool`][]
+    /// literals that avoids an extra heap allocation. These are considered equal with their
+    /// [`Value`][LuaTableEntry::Value] equivalents.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use serde_luaq::{LuaNumber, LuaTableEntry, LuaValue};
+    /// // {true}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::BooleanValue(true),
+    /// ]);
+    ///
+    /// // Different variants of the same value are considered equal
+    /// assert_eq!(
+    ///     LuaTableEntry::Value(Box::new(
+    ///         LuaValue::Boolean(true)
+    ///     )),
+    ///     LuaTableEntry::BooleanValue(true),
+    /// );
+    /// ```
     BooleanValue(bool),
 
     /// Bare `nil` table entry without a key.
     ///
-    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value]
-    /// for `nil` literals that avoids an extra heap allocation.
+    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value] for `nil` literals
+    /// that avoids an extra heap allocation. These are considered equal with their
+    /// [`Value`][LuaTableEntry::Value] equivalents.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use serde_luaq::{LuaNumber, LuaTableEntry, LuaValue};
+    /// // {nil}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::NilValue,
+    /// ]);
+    ///
+    /// // Different variants of the same value are considered equal
+    /// assert_eq!(
+    ///     LuaTableEntry::Value(Box::new(LuaValue::Nil)),
+    ///     LuaTableEntry::NilValue,
+    /// );
+    /// ```
     NilValue,
 }
 
@@ -67,6 +213,7 @@ pub enum LuaTableEntry<'a> {
 assert_eq_size!(LuaNumber, LuaTableEntry<'_>);
 
 impl<'a> LuaTableEntry<'a> {
+    /// Returns `true` if the entry is implicitly-keyed.
     pub const fn implicit_key(&self) -> bool {
         matches!(
             self,
@@ -83,11 +230,20 @@ impl<'a> LuaTableEntry<'a> {
     /// ## Example
     ///
     /// ```rust
-    /// use serde_luaq::{LuaValue, LuaTableEntry};
+    /// # use serde_luaq::{LuaValue, LuaTableEntry};
+    /// assert_eq!(
+    ///     Some(LuaValue::integer(1)),
+    ///     LuaTableEntry::KeyValue(Box::new((LuaValue::integer(1), LuaValue::Boolean(true)))).key()
+    /// );
     ///
-    /// assert_eq!(Some(LuaValue::integer(1)), LuaTableEntry::KeyValue(Box::new((LuaValue::integer(1), LuaValue::Boolean(true)))).key());
-    /// assert_eq!(Some(b"foo".into()), LuaTableEntry::NameValue(Box::new(("foo".into(), LuaValue::Boolean(true)))).key());
-    /// assert_eq!(None, LuaTableEntry::Value(Box::new(LuaValue::Boolean(true))).key());
+    /// assert_eq!(
+    ///     Some(b"foo".into()),
+    ///     LuaTableEntry::NameValue(Box::new(("foo".into(), LuaValue::Boolean(true)))).key()
+    /// );
+    /// assert_eq!(
+    ///     None,
+    ///     LuaTableEntry::Value(Box::new(LuaValue::Boolean(true))).key()
+    /// );
     /// ```
     pub fn key(&'a self) -> Option<LuaValue<'a>> {
         match self {
@@ -413,14 +569,18 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for (Option<i64>, LuaValue<'a>) {
 impl<'a> TryFrom<LuaTableEntry<'a>> for LuaValue<'a> {
     type Error = LuaTableEntry<'a>;
 
-    /// Converts [`LuaTableEntry::Value`] into [`LuaValue`]. Returns `Err` for other
-    /// types.
+    /// Converts keyless [`LuaValue`][] variants into [`LuaValue`].
+    ///
+    /// Returns `Err` for keyed variants.
     ///
     /// This is intended to help convert an `Iterator<Item = LuaTableEntry>`
     /// into an array of [`LuaValue`].
     fn try_from(value: LuaTableEntry<'a>) -> Result<Self, Self::Error> {
         match value {
             LuaTableEntry::Value(v) => Ok(*v),
+            LuaTableEntry::BooleanValue(v) => Ok(LuaValue::Boolean(v)),
+            LuaTableEntry::NumberValue(v) => Ok(LuaValue::Number(v)),
+            LuaTableEntry::NilValue => Ok(LuaValue::Nil),
             other => Err(other),
         }
     }
@@ -433,10 +593,11 @@ impl From<bool> for LuaTableEntry<'_> {
     }
 }
 
-impl From<LuaNumber> for LuaTableEntry<'_> {
-    /// Converts [`LuaNumber`] into [`LuaTableEntry::NumberValue`].
-    fn from(value: LuaNumber) -> Self {
-        Self::NumberValue(value)
+impl<T: Into<LuaNumber>> From<T> for LuaTableEntry<'_> {
+    /// Converts [`LuaNumber`]-compatible values into [`LuaTableEntry::NumberValue`].
+    fn from(value: T) -> Self {
+        let num: LuaNumber = value.into();
+        Self::NumberValue(num)
     }
 }
 
@@ -450,5 +611,265 @@ impl<'a> From<LuaValue<'a>> for LuaTableEntry<'a> {
             LuaValue::Number(n) => Self::NumberValue(n),
             v => Self::Value(Box::new(v)),
         }
+    }
+}
+
+impl PartialEq for LuaTableEntry<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // Equality of same-discriminant values
+            (Self::KeyValue(a), Self::KeyValue(b)) => a == b,
+            (Self::NameValue(a), Self::NameValue(b)) => a == b,
+            (Self::Value(a), Self::Value(b)) => a == b,
+            (Self::NumberValue(a), Self::NumberValue(b)) => a == b,
+            (Self::BooleanValue(a), Self::BooleanValue(b)) => a == b,
+            (Self::NilValue, Self::NilValue) => true,
+
+            // Key variant representations
+            (Self::KeyValue(kv), Self::NameValue(nv))
+            | (Self::NameValue(nv), Self::KeyValue(kv)) => {
+                // Check the KeyValue's key
+                let kv = kv.as_ref();
+                match &kv.0 {
+                    LuaValue::String(kvk) => {
+                        if kvk.as_ref() != nv.0.as_bytes() {
+                            return false;
+                        }
+                    }
+
+                    // Not a string
+                    _ => return false,
+                }
+
+                // They match, now check the values
+                kv.1 == nv.1
+            }
+
+            // Number variant representations
+            (Self::Value(a), Self::NumberValue(b)) | (Self::NumberValue(b), Self::Value(a)) => {
+                match a.as_ref() {
+                    LuaValue::Number(a) => a == b,
+                    _ => false,
+                }
+            }
+
+            // Boolean variant representations
+            (Self::Value(a), Self::BooleanValue(b)) | (Self::BooleanValue(b), Self::Value(a)) => {
+                match a.as_ref() {
+                    LuaValue::Boolean(a) => a == b,
+                    _ => false,
+                }
+            }
+
+            // Nil variant representations
+            (Self::Value(a), Self::NilValue) | (Self::NilValue, Self::Value(a)) => {
+                matches!(a.as_ref(), LuaValue::Nil)
+            }
+
+            _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+    fn equality_bool() {
+        for v in [true, false] {
+            assert_eq!(
+                LuaTableEntry::Value(Box::new(LuaValue::Boolean(v))),
+                LuaTableEntry::BooleanValue(v),
+            );
+            assert_eq!(
+                LuaTableEntry::Value(Box::new(LuaValue::Boolean(v))),
+                LuaTableEntry::Value(Box::new(LuaValue::Boolean(v))),
+            );
+            assert_eq!(
+                LuaTableEntry::BooleanValue(v),
+                LuaTableEntry::BooleanValue(v),
+            );
+
+            // Conversion should use the optimal variant
+            assert!(matches!(
+                LuaTableEntry::from(v), LuaTableEntry::BooleanValue(a) if a == v));
+
+            // Conversion with LuaValue
+            assert_eq!(
+                LuaValue::try_from(LuaTableEntry::BooleanValue(v)).unwrap(),
+                LuaValue::Boolean(v),
+            );
+            assert_eq!(
+                LuaValue::try_from(LuaTableEntry::Value(Box::new(LuaValue::Boolean(v)))).unwrap(),
+                LuaValue::Boolean(v),
+            );
+
+            // Inequality
+            assert_ne!(
+                LuaTableEntry::Value(Box::new(LuaValue::Boolean(!v))),
+                LuaTableEntry::BooleanValue(v),
+            );
+            assert_ne!(
+                LuaTableEntry::Value(Box::new(LuaValue::Boolean(v))),
+                LuaTableEntry::BooleanValue(!v),
+            );
+            assert_ne!(
+                LuaTableEntry::Value(Box::new(LuaValue::Boolean(v))),
+                LuaTableEntry::Value(Box::new(LuaValue::Boolean(!v))),
+            );
+            assert_ne!(
+                LuaTableEntry::BooleanValue(v),
+                LuaTableEntry::BooleanValue(!v),
+            );
+
+            // Keyed variants are not equal
+            assert_ne!(
+                LuaTableEntry::KeyValue(Box::new((
+                    LuaValue::String(b"".into()),
+                    LuaValue::Boolean(v)
+                ))),
+                LuaTableEntry::BooleanValue(v),
+            );
+            assert_ne!(
+                LuaTableEntry::NameValue(Box::new(("".into(), LuaValue::Boolean(v)))),
+                LuaTableEntry::BooleanValue(v),
+            );
+        }
+    }
+
+    #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+    fn equality_nil() {
+        assert_eq!(
+            LuaTableEntry::Value(Box::new(LuaValue::Nil)),
+            LuaTableEntry::NilValue,
+        );
+        assert_eq!(
+            LuaTableEntry::Value(Box::new(LuaValue::Nil)),
+            LuaTableEntry::Value(Box::new(LuaValue::Nil)),
+        );
+        assert_eq!(LuaTableEntry::NilValue, LuaTableEntry::NilValue);
+
+        // Conversion should use the optimal variant
+        assert!(matches!(
+            LuaTableEntry::from(LuaValue::Nil),
+            LuaTableEntry::NilValue
+        ));
+
+        // Conversion with LuaValue
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::NilValue).unwrap(),
+            LuaValue::Nil,
+        );
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::Value(Box::new(LuaValue::Nil))).unwrap(),
+            LuaValue::Nil,
+        );
+    }
+
+    #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+    fn equality_number() {
+        assert_eq!(
+            LuaTableEntry::Value(Box::new(LuaValue::integer(123))),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(123)),
+        );
+        assert_eq!(
+            LuaTableEntry::Value(Box::new(LuaValue::integer(123))),
+            LuaTableEntry::Value(Box::new(LuaValue::integer(123))),
+        );
+        assert_eq!(
+            LuaTableEntry::NumberValue(LuaNumber::Integer(123)),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(123)),
+        );
+
+        assert_ne!(
+            LuaTableEntry::Value(Box::new(LuaValue::integer(123))),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(-123)),
+        );
+
+        // Conversion should use the optimal variant
+        assert!(matches!(
+            LuaTableEntry::from(123),
+            LuaTableEntry::NumberValue(LuaNumber::Integer(n)) if n == 123));
+        assert!(matches!(
+            LuaTableEntry::from(123.456),
+            LuaTableEntry::NumberValue(LuaNumber::Float(n)) if n == 123.456));
+
+        // Conversion with LuaValue
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::NumberValue(LuaNumber::Integer(123))).unwrap(),
+            LuaValue::integer(123),
+        );
+        assert_eq!(
+            LuaValue::try_from(LuaTableEntry::Value(Box::new(LuaValue::integer(123)))).unwrap(),
+            LuaValue::integer(123),
+        );
+    }
+
+    #[test]
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+    fn equality_keyed() {
+        assert_eq!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+        );
+        assert_eq!(
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+        );
+
+        // Different representations of the same value
+        assert_eq!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+        );
+        assert_eq!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+        );
+
+        // Keys differ
+        assert_ne!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::NameValue(Box::new(("b".into(), LuaValue::Boolean(true)))),
+        );
+        assert_ne!(
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("b".into(), LuaValue::Boolean(true)))),
+        );
+        assert_ne!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("b".into(), LuaValue::Boolean(true)))),
+        );
+        assert_ne!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("b".into(), LuaValue::Boolean(true)))),
+        );
+
+        // Values differ
+        assert_ne!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(false)))),
+        );
+        assert_ne!(
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(false)))),
+        );
+        assert_ne!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(false)))),
+        );
+        assert_ne!(
+            LuaTableEntry::NameValue(Box::new(("a".into(), LuaValue::Boolean(true)))),
+            LuaTableEntry::KeyValue(Box::new(("a".into(), LuaValue::Boolean(false)))),
+        );
     }
 }

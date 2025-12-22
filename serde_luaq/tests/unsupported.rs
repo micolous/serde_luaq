@@ -1,4 +1,6 @@
 //! Tests for unsupported language features, which should _fail_ parsing.
+//!
+//! These should work in actual Lua.
 mod common;
 
 use crate::common::{should_error, MAX_DEPTH};
@@ -60,6 +62,20 @@ fn arithmetic_exp() {
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn assignment() {
+    assert!(return_statement(b"a = 3\nreturn a\n", MAX_DEPTH).is_err());
+    assert!(return_statement(b"return a = 3\n", MAX_DEPTH).is_err());
+    assert!(lua_value(b"a = 3\n", MAX_DEPTH).is_err());
+
+    // But this should be valid for scripts.
+    assert_eq!(
+        vec![("a", LuaValue::integer(3))],
+        script(b"a = 3\n", MAX_DEPTH).unwrap()
+    );
+}
+
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn bitwise_and() {
     should_error(b"3 & 2\n");
     should_error(b"3&2\n");
@@ -103,6 +119,15 @@ fn bitwise_not() {
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn block_do() {
     assert!(script(b"a = 3\ndo\n  a = 4\nend\n", MAX_DEPTH).is_err());
+}
+
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn comments() {
+    assert!(script(b"-- line comment\na = 3\n", MAX_DEPTH).is_err());
+    assert!(script(b"--[[ long comment ]]a = 3\n", MAX_DEPTH).is_err());
+    assert!(script(b"--[[\nlong comment\n]]\na = 3\n", MAX_DEPTH).is_err());
+    assert!(script(b"--[==[\nlonger comment\n]==]\na = 3\n", MAX_DEPTH).is_err());
 }
 
 #[test]
