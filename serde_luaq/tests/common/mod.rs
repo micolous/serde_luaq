@@ -9,7 +9,10 @@ pub const MAX_DEPTH: u16 = 16;
 /// Parse a buffer of Lua code and expect no remaining value.
 pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
     let expected: &LuaValue<'a> = expected.borrow();
-    let actual = lua_value(lua, MAX_DEPTH).unwrap();
+    let actual = lua_value(lua, MAX_DEPTH).expect(&format!(
+        "parse error for Lua value: {}",
+        lua.escape_ascii()
+    ));
 
     if expected.is_nan() {
         assert!(actual.is_nan(), "lua: {}", lua.escape_ascii());
@@ -22,7 +25,10 @@ pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
     s.extend_from_slice(b"a = ");
     s.extend_from_slice(lua);
 
-    let (n, actual) = script(&s, MAX_DEPTH).unwrap().pop().unwrap();
+    let (n, actual) = script(&s, MAX_DEPTH)
+        .expect(&format!("parse error for Lua script: {}", s.escape_ascii()))
+        .pop()
+        .unwrap();
     assert_eq!("a", n);
 
     if expected.is_nan() {
@@ -36,7 +42,8 @@ pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
     s.extend_from_slice(b"return ");
     s.extend_from_slice(lua);
 
-    let actual = return_statement(&s, MAX_DEPTH).unwrap();
+    let actual = return_statement(&s, MAX_DEPTH)
+        .expect(&format!("parse error for Lua return: {}", s.escape_ascii()));
 
     if expected.is_nan() {
         assert!(actual.is_nan(), "lua: {}", s.escape_ascii());
@@ -50,7 +57,10 @@ pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
     s.extend_from_slice(lua);
     s.extend_from_slice(b"\n");
 
-    let actual = return_statement(&s, MAX_DEPTH).unwrap();
+    let actual = return_statement(&s, MAX_DEPTH).expect(&format!(
+        "parse error for Lua return with whitespace: {}",
+        s.escape_ascii()
+    ));
 
     if expected.is_nan() {
         assert!(actual.is_nan(), "lua: {}", s.escape_ascii());
