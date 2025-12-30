@@ -68,9 +68,6 @@ pub enum LuaValue<'a> {
     /// Number type, which can be an [integer][LuaNumber::Integer] or
     /// [floating point][LuaNumber::Float].
     ///
-    /// **Note:** hexadecimal floating point literals are not supported by `serde_luaq` when running
-    /// on WASM targets, because it requires a `strtod()` implementation.
-    ///
     /// ## Compatibility
     ///
     /// * **Lua 5.2 and earlier, and Luau** always use `f64` for numbers.
