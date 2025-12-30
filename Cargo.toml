@@ -9,7 +9,7 @@ members = [
 serde_luaq = { path = "./serde_luaq" }
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Michael Farrell <micolous+git@gmail.com>"]
 edition = "2021"
 repository = "https://github.com/micolous/serde_luaq"

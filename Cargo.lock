@@ -188,7 +188,7 @@ dependencies = [
 
 [[package]]
 name = "fuzz-target"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "afl",
  "serde_luaq",
@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "serde_luaq"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "flate2",
