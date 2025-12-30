@@ -116,7 +116,7 @@
 //! | Hexadecimal float[^wasm] | ✅ | ✅ | ❌ |
 //! | `(0/0)` (NaN) | ✅ | ✅ | ❌ |
 //!
-//! [^wasm]: Not supported on WASM targets
+//! [^wasm]: Not supported on WASM targets before v0.2.1.
 //!
 //! * A [`LuaNumber`][] field will follow Lua 5.4 semantics, which could be a [`i64`][] or
 //!   [`f64`][].
@@ -655,38 +655,6 @@ fn valid_lua_identifier(i: &[u8]) -> bool {
     }
 
     i.all(|&c| c.is_ascii_alphanumeric() || c == b'_')
-}
-
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-/// Converts a string to a `f64` using C's standard library.
-///
-/// This supports parsing hexadecimal floating points.
-fn strtod(i: &str) -> Option<f64> {
-    use std::ffi::{c_char, CString};
-
-    extern "C" {
-        fn strtod(nptr: *const c_char, endptr: &mut usize) -> f64;
-    }
-
-    // Length excludes null byte
-    let len = i.len();
-
-    // Copy to local buffer with null terminator
-    let i = CString::new(i).ok()?;
-    let nptr = i.as_ptr();
-    let expected_endptr = nptr.addr() + len;
-
-    // strtod does not use this as an input
-    let mut endptr = 0;
-
-    let o = unsafe { strtod(nptr, &mut endptr) };
-
-    if expected_endptr != endptr {
-        // strtod didn't parse the whole value, so there was some error
-        None
-    } else {
-        Some(o)
-    }
 }
 
 /// Parses a `&[u8]` as a byte-string containing an integer expressed using
