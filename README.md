@@ -170,7 +170,7 @@ This project is dual-licensed under the terms of the Apache-2.0 and MIT licenses
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
 this project by you, as defined in the Apache-2.0 license, shall be dual licensed under the terms of
-the Apache-2.0 and MIT licenses, without any additional terms or conditions. 
+the Apache-2.0 and MIT licenses, without any additional terms or conditions.
 
 `serde_luaq` does not include any copy of Lua itself. To ensure maximal compatibility with Lua's
 syntax, some of its test cases are derived from [Lua's test suite][luatest].
