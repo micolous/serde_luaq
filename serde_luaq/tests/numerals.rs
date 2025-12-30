@@ -15,13 +15,13 @@ wasm_bindgen_test_configure!(run_in_browser);
 fn decimal_integers() {
     // https://www.lua.org/manual/5.4/manual.html#3.1
     check(b"0", LuaValue::integer(0));
-    check(b"+0", LuaValue::integer(0));
+    should_error(b"+0");
     check(b"-0", LuaValue::integer(-0));
     check(b"3", LuaValue::integer(3));
-    check(b"+3", LuaValue::integer(3));
+    should_error(b"+3");
     check(b"-3", LuaValue::integer(-3));
     check(b"345", LuaValue::integer(345));
-    check(b"+345", LuaValue::integer(345));
+    should_error(b"+345");
     check(b"-345", LuaValue::integer(-345));
     check(b"9223372036854775807", LuaValue::integer(i64::MAX));
     check(b"-9223372036854775808", LuaValue::integer(i64::MIN));
@@ -72,17 +72,14 @@ fn decimal_integers() {
 fn hex_integers() {
     check(b"0xff", LuaValue::integer(0xff));
     check(b"0Xff", LuaValue::integer(0xff));
-    check(b"+0xff", LuaValue::integer(0xff));
-    check(b"+0Xff", LuaValue::integer(0xff));
+    should_error(b"+0xff");
+    should_error(b"+0Xff");
     check(b"-0xff", LuaValue::integer(-0xff));
     check(b"-0Xff", LuaValue::integer(-0xff));
     check(b"0xBEBADA", LuaValue::integer(0xBEBADA));
-    check(b"+0xBEBADA", LuaValue::integer(0xBEBADA));
+    should_error(b"+0xBEBADA");
     check(b"0x7fffffffffffffff", LuaValue::integer(0x7fffffffffffffff));
-    check(
-        b"+0x7fffffffffffffff",
-        LuaValue::integer(0x7fffffffffffffff),
-    );
+    should_error(b"+0x7fffffffffffffff");
     check(
         b"-0x7fffffffffffffff",
         LuaValue::integer(-0x7fffffffffffffff),
@@ -98,18 +95,12 @@ fn hex_integers() {
         b"0x8000000000000000",
         LuaValue::integer(0x8000000000000000_u64 as i64),
     );
-    check(
-        b"+0x8000000000000000",
-        LuaValue::integer(0x8000000000000000_u64 as i64),
-    );
+    should_error(b"+0x8000000000000000");
     check(
         b"0xffffffffffffffff",
         LuaValue::integer(0xffffffffffffffff_u64 as i64),
     );
-    check(
-        b"+0xffffffffffffffff",
-        LuaValue::integer(0xffffffffffffffff_u64 as i64),
-    );
+    should_error(b"+0xffffffffffffffff");
     check(
         b"-0xffffffffffffffff",
         LuaValue::integer(-0xffffffffffffffff_i128 as i64),
@@ -118,10 +109,7 @@ fn hex_integers() {
         b"0x123456789abcdef01",
         LuaValue::integer(0x123456789abcdef01_u128 as i64),
     );
-    check(
-        b"+0x123456789abcdef01",
-        LuaValue::integer(0x123456789abcdef01_u128 as i64),
-    );
+    should_error(b"+0x123456789abcdef01");
     check(
         b"-0x123456789abcdef01",
         LuaValue::integer(-0x123456789abcdef01_i128 as i64),
@@ -142,8 +130,8 @@ fn decimal_floats() {
     check(b"-314.16e-2", LuaValue::float(-314.16e-2));
     check(b"0.31416E1", LuaValue::float(0.31416E1));
     check(b"0.31416E+1", LuaValue::float(0.31416E1));
-    check(b"+0.31416E1", LuaValue::float(0.31416E1));
-    check(b"+0.31416E+1", LuaValue::float(0.31416E1));
+    should_error(b"+0.31416E1");
+    should_error(b"+0.31416E+1");
     check(b"-0.31416E1", LuaValue::float(-0.31416E1));
     check(b"34e1", LuaValue::float(34e1));
     check(b"-34e1", LuaValue::float(-34e1));
@@ -196,13 +184,14 @@ fn hex_floats() {
     // lua-tests/math.lua, floating hexes
     // let x = 2.3125; // 0x4002800000000000
     check(b"0x2.5", LuaValue::float(f64::from(0x25) / 16.)); // 2.3125
-    check(b"+0x2.5", LuaValue::float(f64::from(0x25) / 16.));
+    should_error(b"+0x2.5");
     check(b"-0x2.5", LuaValue::float(f64::from(-0x25) / 16.));
 
     check(b"0x0p12", LuaValue::float(0.));
     check(b"-0x0p12", LuaValue::float(-0.));
     check(b"0x.0p-3", LuaValue::float(0.));
-    check(b"+0x0.51p+8", LuaValue::float(0x51_i32.into()));
+    check(b"0x0.51p+8", LuaValue::float(0x51_i32.into()));
+    should_error(b"+0x0.51p+8");
     check(b"0xA.a", LuaValue::float(10f64 + (10. / 16.)));
     check(b"0xa.aP4", LuaValue::float(0xAA.into()));
     check(b"0x.ABCDEFp+24", LuaValue::float(0xabcdef.into()));
