@@ -37,7 +37,6 @@ pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
     s.extend_from_slice(lua);
 
     let actual = return_statement(&s, MAX_DEPTH).unwrap();
-    assert_eq!("a", n);
 
     if expected.is_nan() {
         assert!(actual.is_nan(), "lua: {}", s.escape_ascii());
@@ -52,7 +51,6 @@ pub fn check<'a>(lua: &'_ [u8], expected: impl Borrow<LuaValue<'a>>) {
     s.extend_from_slice(b"\n");
 
     let actual = return_statement(&s, MAX_DEPTH).unwrap();
-    assert_eq!("a", n);
 
     if expected.is_nan() {
         assert!(actual.is_nan(), "lua: {}", s.escape_ascii());

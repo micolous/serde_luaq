@@ -198,7 +198,6 @@ fn disallowed_floats() -> Result {
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn floats() -> Result {
-    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     assert_eq!(
         json!(2.3125),
         to_json_value(lua_value(b"0x2.5", MAX_DEPTH)?, &DEFAULT_OPTS)?
