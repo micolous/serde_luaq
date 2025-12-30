@@ -1,6 +1,6 @@
 [package]
 name = "serde_luaq"
-readme = "../README.md"
+readme = "README.md"
 description = "A Lua %q serialization file format"
 version.workspace = true
 authors.workspace = true
