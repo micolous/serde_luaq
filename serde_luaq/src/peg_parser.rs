@@ -158,7 +158,7 @@ peg::parser! {
 
                 (
                     n:$(
-                        [ b'+' | b'-' ]?
+                        [ b'-' ]?
                         (
                             // 3.14, 3., .14 with optional exponent
                             (
@@ -195,7 +195,7 @@ peg::parser! {
                 // 0xf0.0dp10, 0xf0.0d, 0xf00dp10
                 (
                     n:$(
-                        [ b'+' | b'-' ]?
+                        [ b'-' ]?
                         ( "0x" / "0X" )
                         (
                             // 0xf0.(0d)(p[+-]10)
@@ -245,7 +245,7 @@ peg::parser! {
 
                 // 0x1234
                 (
-                    sign:$([ b'+' | b'-' ]?)
+                    sign:$([ b'-' ]?)
                     "0"
                     [ b'X' | b'x' ]
                     n:$(hex_digits())
@@ -260,7 +260,7 @@ peg::parser! {
                 // 1234
                 (
                     n:$(
-                        [ b'+' | b'-' ]?
+                        [ b'-' ]?
                         digit()+
                     )
                     {?
