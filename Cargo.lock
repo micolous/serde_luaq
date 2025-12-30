@@ -201,6 +201,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hexponent"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07482eb12527cb107ba354de9717dbce361ce82ec553fe9e70a98db29fd00d3d"
+
+[[package]]
 name = "home"
 version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -427,6 +433,7 @@ version = "0.2.0"
 dependencies = [
  "clap",
  "flate2",
+ "hexponent",
  "peg",
  "serde",
  "serde_bytes",

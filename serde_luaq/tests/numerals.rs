@@ -64,10 +64,6 @@ fn decimal_integers() {
         b"-179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137216",
         LuaValue::float(f64::NEG_INFINITY),
     );
-
-    // We don't support locale-specific integers
-    should_error(b"3,14");
-    should_error(b".4,3");
 }
 
 /// Hex integer values
@@ -169,13 +165,21 @@ fn decimal_floats() {
     // Overflow f64
     check(b"1.8e+308", LuaValue::float(f64::INFINITY));
     check(b"-1.8e+308", LuaValue::float(f64::NEG_INFINITY));
+
+    // We don't support locale-specific floats
+    should_error(b"3,14");
+    should_error(b"3,14e2");
+    should_error(b".4,3");
 }
 
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 /// Hex floats
 #[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn hex_floats() {
-    use crate::common::should_error;
+    check(b"0x1.", LuaValue::float(1.));
+    check(b"0x1.0", LuaValue::float(1.));
+    should_error(b"0x1.0p");
+    check(b"0x1.0p0", LuaValue::float(1.));
 
     // lua-tests/math.lua, hex
     check(b"0E+1", LuaValue::float(0.));
@@ -202,6 +206,30 @@ fn hex_floats() {
     check(b"0xA.a", LuaValue::float(10f64 + (10. / 16.)));
     check(b"0xa.aP4", LuaValue::float(0xAA.into()));
     check(b"0x.ABCDEFp+24", LuaValue::float(0xabcdef.into()));
+
+    // https://github.com/lifthrasiir/hexf/issues/25
+    // $ lua -e 'print(0x0.1E)'
+    // 0.1171875
+    check(b"0x.1E", LuaValue::float(0.1171875));
+    check(b"0x0.1E", LuaValue::float(0.1171875));
+
+    // https://docs.rs/hexfloat2/0.1.3/hexfloat2/
+    // "too many hex digits" is allowed by Lua:
+    // $ lua -e 'print(0x10000000000000000p20)'
+    // 1.9342813113834e+25
+    check(
+        b"0x10000000000000000p20",
+        LuaValue::float(1.9342813113834067e25),
+    );
+
+    // Lua prints both these as "1.0", but only the first is equal to 1.0.
+    check(b"0x1.0000000000001p0", LuaValue::float(1.0000000000000002));
+    check(b"0x1.00000000000001p0", LuaValue::float(1.));
+
+    // We don't support locale-specific hex floats
+    should_error(b"0x2,5");
+    should_error(b"0xA,a");
+    should_error(b"0xa,aP4");
 }
 
 /// Special floats

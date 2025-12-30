@@ -101,7 +101,7 @@ that a JSON parser would implement:
   - [x] [Floats][lua3.1] (`f64` only)
     - [x] Decimal floats with decimal point and optional exponent (`3.14`, `0.314e1`)
     - [x] Decimal floats with mandatory exponent (`3e14`)
-    - [x] Hexadecimal floating points (`0x.ABCDEFp+24`) (*not supported on WASM*)
+    - [x] Hexadecimal floating points (`0x.ABCDEFp+24`) (*not supported on WASM before v0.2.1*)
     - [x] Positive and negative infinity (`1e9999`, `-1e9999`)
     - [x] NaN (`(0/0)`)
 - [x] [Strings][lua3.1]
