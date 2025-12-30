@@ -770,5 +770,15 @@ fn borrows() -> Result {
     assert!(!lua_value(br"'hello\n'", MAX_DEPTH)?.is_borrowed());
     assert!(!lua_value(b"\"hello\\n\"", MAX_DEPTH)?.is_borrowed());
 
+    // But empty spans shouldn't count
+    assert!(lua_value(b"'\\z\n'", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"\"\\z\n\"", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"'\\z\n\\z\n'", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"\"\\z\n\\z\n\"", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"'\\z\nhello'", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"\"\\z\nhello\"", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"'\\z\nhello\\z\n'", MAX_DEPTH)?.is_borrowed());
+    assert!(lua_value(b"\"\\z\nhello\\z\n\"", MAX_DEPTH)?.is_borrowed());
+
     Ok(())
 }

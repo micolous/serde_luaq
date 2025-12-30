@@ -34,10 +34,15 @@
 //! assert_eq!(LuaValue::Boolean(true), lua_value(b"true", /* max table depth */ 16).unwrap());
 //! ```
 //!
-//! There are similar deserialisers for [a single `return` statement][return_statement] and
+//! There are similar deserialisers for [a `return` statement][return_statement] and
 //! [scripts with one or more variable assignments][script].
 //!
+//! [Maximum table depth limits are described in their own section](#maximum-table-depth).
+//!
 //! ### serde deserialiser
+//!
+//! [`from_slice()`][] deserialises a [a bare Lua value][LuaFormat::Value] into a type that
+//! implements [`Deserialize`][serde::Deserialize]:
 //!
 //! ```rust
 //! use serde::Deserialize;
@@ -70,6 +75,11 @@
 //!     ).unwrap(),
 //! );
 //! ```
+//!
+//! It can also deserialise from [a `return` statement][LuaFormat::Return] or
+//! [script with one or more variable assignments][LuaFormat::Script].
+//!
+//! [Maximum table depth limits are described in their own section](#maximum-table-depth).
 //!
 //! ## Data types
 //!
@@ -107,19 +117,19 @@
 //!
 //! The following types can be used with Serde's data model:
 //!
-//! | Literal | [`LuaNumber`][] | [`f64`][] | [`i64`][] |
-//! | ------- | :-------------: | :-------: | :-------: |
-//! | Decimal integer,<br>inside [`i64`][] range | ✅ | may lose precision | ✅ |
-//! | Decimal integer,<br>outside [`i64`][] range | will lose precision | will lose precision | ❌ |
-//! | Hexadecimal integer | ✅ | may lose precision | ✅ |
-//! | Decimal float | ✅ | ✅ | ❌ |
-//! | Hexadecimal float[^wasm] | ✅ | ✅ | ❌ |
-//! | `(0/0)` (NaN) | ✅ | ✅ | ❌ |
+//! | Literal | [`LuaNumber`][] variant | [`f64`][] | [`i64`][] |
+//! | ------- | :---------------------: | :-------: | :-------: |
+//! | Decimal integer,<br>inside [`i64`][] range | [`Integer`][LuaNumber::Integer] | may lose precision | ✅ |
+//! | Decimal integer,<br>outside [`i64`][] range | [`Float`][LuaNumber::Float]<br>will lose precision | will lose precision | ❌ |
+//! | Hexadecimal integer | [`Integer`][LuaNumber::Integer] | may lose precision | ✅ |
+//! | Decimal float | [`Float`][LuaNumber::Float] | ✅ | ❌ |
+//! | Hexadecimal float[^wasm] | [`Float`][LuaNumber::Float] | ✅ | ❌ |
+//! | `(0/0)` (NaN) | [`Float`][LuaNumber::Float] | ✅ | ❌ |
 //!
 //! [^wasm]: Not supported on WASM targets before v0.2.1.
 //!
-//! * A [`LuaNumber`][] field will follow Lua 5.4 semantics, which could be a [`i64`][] or
-//!   [`f64`][].
+//! * A [`LuaNumber`][] field will follow Lua 5.4 semantics, which could be a
+//!   [`i64`][LuaNumber::Integer] or [`f64`][LuaNumber::Float].
 //!
 //! * An [`f64`][] field will accept decimal integer literals from &minus;(2<sup>53</sup> &minus; 1)
 //!   to (2<sup>53</sup> &minus; 1) without loss of precision.
@@ -133,6 +143,11 @@
 //!
 //!   This means the literal `0xffffffffffffffff` is always treated as if it were written `-1`, even
 //!   for [`f64`][], [`i8`][], and [`u64`][] fields. This would be an error for unsigned types.
+//!
+//! * Hexadecimal float literals with more than 16 hex digits will not parse, due to a limitation of
+//!   the parsing library `serde_luaq` uses.
+//!
+//!   While Lua _accepts_ these values, `string.format('%q')` would never produce them.
 //!
 //! * Narrower integer fields like [`i8`][] and [`i16`][] reject all integer literals that are
 //!   outside of their range.
@@ -415,9 +430,8 @@
 //! ```
 //!
 //! If your program is ever sent untrusted Lua inputs, a malicious actor could insert some code
-//! which could do anything to your program or the system it is running on.
-//!
-//! For example, this input would cause it to read and return the contents of `/etc/passwd`:
+//! which could do anything to your program or the system it is running on. For example, this input
+//! would cause Lua to read and return the contents of `/etc/passwd`:
 //!
 //! ```lua
 //! (function() f=io.open('/etc/passwd');return f:read('a');end)()
@@ -473,8 +487,7 @@
 //! <div class="warning">
 //!
 //! **Warning:** setting `max_depth` too high allows a heavily-nested table to cause your program
-//! [to overflow its stack and crash][stackoverflow], or use
-//! [a large amount of memory per byte of input Lua](#large-input-data).
+//! [to overflow its stack and crash][stackoverflow].
 //!
 //! What is "too high" depends on your platform and where you call `serde_luaq` in your program.
 //!
@@ -482,34 +495,51 @@
 //!
 //! </div>
 //!
-//! ### Large input data
+//! ## Memory usage
+//!
+//! Unless otherwise noted, all memory usage estimates assume a 64-bit target CPU.
 //!
 //! `serde_luaq` requires that the entire input fit in memory, and be less than [`usize::MAX`][]
 //! bytes (4 GiB on 32-bit systems, 16 EiB on 64-bit systems). It is the _caller's_ responsibility
-//! to enforce a reasonable input size limit.
+//! to enforce a reasonable input size limit for the system's available RAM.
 //!
-//! When deserialising a Lua data structure on a 64-bit system, the _minimum_ sizes of the
-//! [`LuaValue`][] and [`LuaTableEntry`][] `enum`s are 32 and 16 bytes respectively. Values are
-//! checked at compile-time on `aarch64`, `wasm32` and `x86_64` targets to prevent regressions.
+//! When deserialising a Lua data structure, the _minimum_ sizes of the [`LuaValue`][] and
+//! [`LuaTableEntry`][] `enum`s are 32 and 16 bytes respectively. Values are checked at compile-time
+//! on `aarch64`, `wasm32` and `x86_64` targets to prevent regressions.
 //!
 //! Heap-allocated variants of these `enum`s (those with [`Cow`][std::borrow::Cow] or [`Vec`][]
-//! fields) will use more memory.
+//! fields) use more memory.
 //!
-//! `serde_luaq` uses [`Cow`][std::borrow::Cow] to avoid owning strings whenever possible, and
-//! borrow them from the input buffer instead. However, strings that contain escape sequences need
-//! to be copied, but this is _at worst_ 1 to 1 memory with input Lua plus [`Vec`][]'s usual
-//! overheads.
+//! ### Large data structures
 //!
-//! At present, the highest-known memory usage per byte of input Lua is a deeply-nested table of
-//! tables, which consumes about 96 bytes of RAM for 2 bytes of input Lua (ie: 48&times;) on a
-//! 64-bit system. This means a 64 MiB input could use up to 3 GiB of RAM. This can be mitigated by
-//! [lowering the maximum table depth](#maximum-table-depth).
+//! At present, the highest-known memory usage per byte of input Lua is a table of deeply-nested
+//! tables, which consumes up to 96 bytes of RAM for 2 bytes of input Lua (48&times;). This means a
+//! 64 MiB input could use up to 3 GiB of RAM.
+//!
+//! Setting a maximum table depth of 2 could limit this to 56 bytes of RAM for 3 bytes of input Lua
+//! (18.67&times;), or 1.167 GiB of RAM for a 64 MiB input.
 //!
 //! Lua uses similar amounts of memory for such data structures.
 //!
 //! When deserialising into your own data structures with Serde, be mindful that some Rust data
 //! structures can use **significant amounts of memory** if you're not careful. Check out
 //! [the Rust performance book][rust-perf] for tips.
+//!
+//! ### Large strings
+//!
+//! `serde_luaq` uses [`Cow`][std::borrow::Cow] to avoid owning strings whenever possible, borrowing
+//! from the input buffer (for short strings that don't contain escape sequences, and long strings)
+//! or `'static` (for empty strings and those containing a single, non-UTF-8 escape sequence) instead.
+//!
+//! Otherwise, it must be reassembled by copying it into an owned buffer.
+//!
+//! If the string consists entirely of escape sequences, the parser may temporarily use up to 24
+//! bytes of memory per 2 bytes of input Lua (12&times;).
+//!
+//! The final, reassembled string will use up to 1 byte of memory for each byte of input Lua, plus
+//! [`Vec`][]'s usual overheads (but doesn't allocate excess capacity).
+//!
+//! Unlike Lua, `serde_luaq` does not de-duplicate strings in a string table.
 //!
 //! ## Lua version compatibility
 //!

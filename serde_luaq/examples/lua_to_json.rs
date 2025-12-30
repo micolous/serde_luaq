@@ -87,11 +87,13 @@ struct Args {
 // decreases more easily.
 struct Counter;
 static ALLOCATED: AtomicIsize = AtomicIsize::new(0);
+static PEAK: AtomicIsize = AtomicIsize::new(0);
 unsafe impl GlobalAlloc for Counter {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let ret = unsafe { System.alloc(layout) };
         if !ret.is_null() {
-            ALLOCATED.fetch_add(layout.size() as isize, Relaxed);
+            let r = ALLOCATED.fetch_add(layout.size() as isize, Relaxed);
+            PEAK.fetch_max(r, Relaxed);
         }
         ret
     }
@@ -146,7 +148,8 @@ fn main() -> Result {
 
     let parse_lua_bytes = ALLOCATED.load(Relaxed) - load_lua_bytes;
     if args.memory_stats {
-        eprintln!("Parsing Lua added: {parse_lua_bytes} bytes");
+        let peak = PEAK.load(Relaxed) - load_lua_bytes;
+        eprintln!("Parsing Lua added: {parse_lua_bytes} bytes, {peak} peak bytes");
     }
 
     if args.no_json {

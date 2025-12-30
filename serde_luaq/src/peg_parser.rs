@@ -55,14 +55,44 @@ fn merge_spans<'a>(s: Vec<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
         return EMPTY;
     }
 
-    if s.len() == 1 {
+    let spans = s.len();
+    if spans == 1 {
         // If there's only one span, return it directly, rather than
         // copying it.
         let mut s = s;
         return s.swap_remove(0);
     }
 
-    let l: usize = s.iter().map(|c| c.len()).sum();
+    // Find the total length of the string, and also check if there is only one non-empty span.
+    let mut l: usize = 0;
+    let mut first_non_empty = true;
+    let mut only_non_empty_idx = spans;
+    for (p, e) in s.iter().enumerate() {
+        let m = e.len();
+
+        if m != 0 {
+            if first_non_empty {
+                // This is our first non-empty entry
+                only_non_empty_idx = p;
+                first_non_empty = false;
+            } else {
+                // We've seen a non-empty entry before, forget the old one.
+                only_non_empty_idx = spans;
+            }
+
+            l += m;
+        }
+    }
+
+    if l == 0 {
+        // Everything was empty (probably because of \z escapes)
+        return EMPTY;
+    } else if only_non_empty_idx < spans {
+        // Only one entry was non-empty.
+        let mut s = s;
+        return s.swap_remove(only_non_empty_idx);
+    }
+
     let mut o = Vec::with_capacity(l);
     for i in s.into_iter() {
         match i {
