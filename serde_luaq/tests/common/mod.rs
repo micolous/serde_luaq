@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use serde_luaq::{lua_value, return_statement, script, LuaValue};
+use serde_luaq::{lua_value, return_statement, script, CompactFormatter, LuaValue};
 use std::borrow::Borrow;
 
 /// Maximum table depth for all tests. Our tests are very small!
@@ -93,5 +93,20 @@ pub fn should_error(lua: &'_ [u8]) {
         script(lua, MAX_DEPTH).is_err(),
         "lua script: {}",
         lua.escape_ascii()
+    );
+}
+
+pub fn check_format<'a>(value: impl Borrow<LuaValue<'a>>, expected: &[u8]) {
+    let value: &LuaValue<'a> = value.borrow();
+
+    let mut buf = Vec::with_capacity(128);
+    let mut fmt = CompactFormatter;
+    value.to_writer(&mut buf, &mut fmt).unwrap();
+    assert_eq!(
+        buf,
+        expected,
+        "\"{}\" != \"{}\"",
+        buf.escape_ascii(),
+        expected.escape_ascii(),
     );
 }

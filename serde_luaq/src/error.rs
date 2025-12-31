@@ -6,14 +6,18 @@ use thiserror::Error as ThisError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, ThisError, PartialEq, Eq)]
+#[derive(Debug, ThisError)]
 pub enum Error {
     #[error("serde deserialize error: {0}")]
     SerdeDeserialize(String),
     #[error("serde serialize error: {0}")]
     SerdeSerialize(String),
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
     #[error("peg parse error: {0:?}")]
     Peg(#[from] peg::error::ParseError<usize>),
+    #[error("invalid Lua identifier: {0:?}")]
+    InvalidLuaIdentifier(String),
 }
 
 impl ser::Error for Error {

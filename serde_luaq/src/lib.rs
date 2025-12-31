@@ -619,6 +619,7 @@
 //! [stackoverflow]: https://github.com/rust-lang/rust/issues/79935
 mod de;
 mod error;
+mod formatter;
 mod number;
 mod peg_parser;
 #[cfg(feature = "serde_json")]
@@ -629,6 +630,7 @@ mod value;
 pub use crate::{
     de::{from_slice, from_str, LuaFormat},
     error::{Error, Result},
+    formatter::{CompactFormatter, Formatter},
     number::LuaNumber,
     peg_parser::lua::{lua_value, return_statement, script},
     table_entry::LuaTableEntry,

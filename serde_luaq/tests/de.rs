@@ -2,7 +2,7 @@
 mod common;
 use crate::common::{check, MAX_DEPTH};
 use serde::Deserialize;
-use serde_luaq::{from_slice, LuaFormat, LuaNumber, LuaTableEntry, LuaValue};
+use serde_luaq::{from_slice, Error, LuaFormat, LuaNumber, LuaTableEntry, LuaValue};
 use std::collections::BTreeMap;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -829,31 +829,38 @@ fn strings() -> Result {
     );
 
     // Serde handling byte strings as String
-    let expected = serde_luaq::Error::SerdeDeserialize(
-        "invalid value: byte array, expected UTF8 string".to_string(),
-    );
+    let expected = "invalid value: byte array, expected UTF8 string";
 
     // RFC 2279 escapes
-    assert_eq!(
-        expected,
-        from_slice::<String>(b"'\\u{d800}'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
-    );
-    assert_eq!(
-        expected,
-        from_slice::<String>(b"'\\u{7FFFFFFF}'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
-    );
+    let Error::SerdeDeserialize(s) =
+        from_slice::<String>(b"'\\u{d800}'", LuaFormat::Value, MAX_DEPTH).unwrap_err()
+    else {
+        panic!("unexpected error type");
+    };
+    assert_eq!(expected, s);
+
+    let Error::SerdeDeserialize(s) =
+        from_slice::<String>(b"'\\u{7FFFFFFF}'", LuaFormat::Value, MAX_DEPTH).unwrap_err()
+    else {
+        panic!("unexpected error type");
+    };
+    assert_eq!(expected, s);
 
     // Binary data
-    assert_eq!(
-        expected,
-        from_slice::<String>(b"'\xC0\xE0'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
-    );
+    let Error::SerdeDeserialize(s) =
+        from_slice::<String>(b"'\xC0\xE0'", LuaFormat::Value, MAX_DEPTH).unwrap_err()
+    else {
+        panic!("unexpected error type");
+    };
+    assert_eq!(expected, s);
 
     // Escaped binary data
-    assert_eq!(
-        expected,
-        from_slice::<String>(b"'\\xC0\\xE0'", LuaFormat::Value, MAX_DEPTH).unwrap_err(),
-    );
+    let Error::SerdeDeserialize(s) =
+        from_slice::<String>(b"'\\xC0\\xE0'", LuaFormat::Value, MAX_DEPTH).unwrap_err()
+    else {
+        panic!("unexpected error type");
+    };
+    assert_eq!(expected, s);
 
     Ok(())
 }

@@ -983,11 +983,6 @@ pub enum LuaFormat {
 ///
 /// For more details about type mapping rules and parameters,
 /// [see the crate docs][crate#data-types].
-///
-/// [serde-num-keys]: https://github.com/serde-rs/serde/issues/2358
-/// [surrogate]: https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/#G2630
-/// [RFC 2279]: https://www.rfc-editor.org/rfc/rfc2279
-/// [RFC 3629]: https://www.rfc-editor.org/rfc/rfc3629
 pub fn from_slice<'a, T>(b: &'a [u8], format: LuaFormat, max_depth: u16) -> Result<T, Error>
 where
     T: de::Deserialize<'a>,

@@ -1,5 +1,5 @@
 mod common;
-use crate::common::{check, MAX_DEPTH};
+use crate::common::{check, check_format, MAX_DEPTH};
 use serde_luaq::{script, LuaValue};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -14,12 +14,17 @@ type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn booleans() {
     check(b"true", LuaValue::Boolean(true));
     check(b"false", LuaValue::Boolean(false));
+
+    check_format(LuaValue::Boolean(true), b"true");
+    check_format(LuaValue::Boolean(false), b"false");
 }
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn nil() {
     check(b"nil", LuaValue::Nil);
+
+    check_format(LuaValue::Nil, b"nil");
 }
 
 #[test]
