@@ -3,9 +3,9 @@
 //! `serde_luaq` is a library for deserialising (and eventually, serialising) simple, JSON-like data
 //! structures from Lua 5.4 source code, _without requiring Lua itself_.
 //!
-//! The goal is to be able to read state from software (mostly games) which is serialised using
+//! The goal is to safely read state from software (mostly games) which is serialised using
 //! [Lua `%q` formatting][format] (and similar techniques)
-//! [_without_ requiring arbitrary code execution](#security).
+//! [_without_ allowing arbitrary code execution](#security).
 //!
 //! This library consists of four parts:
 //!
@@ -180,9 +180,9 @@
 //! `\u{10FFFF}`. `serde_luaq` will convert these escapes into bytes following RFC 2279, which might
 //! not be valid in RFC 3629.
 //!
-//! Serde [`String`] fields can be used the string literal evaluates to valid RFC 3629 UTF-8. This
-//! is not guaranteed even if [the input data is `&str`][self::from_str], as Lua string escapes may
-//! evaluate to binary values or invalid sequences (eg: `"\xC1\u{7FFFFFFF}"`).
+//! Serde [`String`] fields can be used if the string literal evaluates to valid RFC 3629 UTF-8.
+//! This is not guaranteed even if [the input data is `&str`][self::from_str], as Lua string escapes
+//! may evaluate to binary values or invalid sequences (eg: `"\xC1\u{7FFFFFFF}"`).
 //!
 //! **Unlike Lua,** new-line characters/sequences in strings are kept _as-is_, and not converted to
 //! their platform-specific representation.
@@ -402,7 +402,7 @@
 //!
 //! While using Lua as a serialisation format is convenient to work with in Lua,
 //! [its `load()`][load] and [`require()`][require] functions allow arbitrary code execution, so
-//! aren't safe to use with untrusted inputs. These risks are similar to using
+//! aren't safe to use with untrusted inputs ([CWE-95][]). These risks are similar to using
 //! [JavaScript's `eval()` function][jseval] to load JSON data (instead of
 //! [`JSON.parse()`][jsonparse]).
 //!
@@ -429,12 +429,20 @@
 //! print(a.hello)
 //! ```
 //!
-//! If your program is ever sent untrusted Lua inputs, a malicious actor could insert some code
-//! which could do anything to your program or the system it is running on. For example, this input
-//! would cause Lua to read and return the contents of `/etc/passwd`:
+//! If your program is ever sent untrusted Lua inputs, an attacker could insert some code which
+//! could do anything to your program or the system it is running on. For example, this input would
+//! cause Lua to read and return the contents of `/etc/passwd`:
 //!
 //! ```lua
 //! (function() f=io.open('/etc/passwd');return f:read('a');end)()
+//! ```
+//!
+//! Even if you attempted to sandbox the code with [`setfenv()`][setfenv] (Lua 5.1) or loaded it
+//! into [an isolated environment][environments], an attacker could still make it consume a lot of
+//! memory or CPU:
+//!
+//! ```lua
+//! (function() x={};for a=1,100000000 do x[a]=a end;return x;end)()
 //! ```
 //!
 //! `serde_luaq` addresses this risk by implementing a JSON-like subset of Lua's syntax, such that
@@ -458,7 +466,7 @@
 //! read the same data structures, on a [`LuaValue`][] level (not Serde). If it doesn't, that's a
 //! bug. :)
 //!
-//! ### Maximum table depth
+//! ## Maximum table depth
 //!
 //! The `max_depth` argument controls how deeply nested a table can be before being rejected by
 //! `serde_luaq`.
@@ -589,7 +597,9 @@
 //! `serde_luaq`.
 //!
 //! [comma]: https://github.com/lua/lua/blob/104b0fc7008b1f6b7d818985fbbad05cd37ee654/testes/literals.lua#L298-L300
+//! [CWE-95]: https://cwe.mitre.org/data/definitions/95.html
 //! [empty-statements]: https://www.lua.org/manual/5.1/manual.html#2.4.1
+//! [environments]: https://www.lua.org/manual/5.4/manual.html#2.2
 //! [flatten]: https://serde.rs/attr-flatten.html
 //! [format]: https://www.lua.org/manual/5.4/manual.html#pdf-string.format
 //! [`peg`]: https://docs.rs/peg/latest/peg/
@@ -602,6 +612,7 @@
 //! [Serde]: https://serde.rs/
 //! [serde_bytes]: https://docs.rs/serde_bytes/latest/serde_bytes/
 //! [serde-num-keys]: https://github.com/serde-rs/serde/issues/2358
+//! [setfenv]: https://www.lua.org/manual/5.1/manual.html#pdf-setfenv
 //! [surrogate]: https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/#G2630
 //! [RFC 2279]: https://www.rfc-editor.org/rfc/rfc2279
 //! [RFC 3629]: https://www.rfc-editor.org/rfc/rfc3629
