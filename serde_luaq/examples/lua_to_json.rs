@@ -17,7 +17,7 @@ use std::{
 const DEFAULT_SIZE_LIMIT: usize = 64 * 1024 * 1024;
 
 /// Default maximum table depth (`LUAI_MAXCCALLS`).
-const DEFAULT_MAX_DEPTH: u16 = 200;
+const DEFAULT_MAX_DEPTH: u16 = 16;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 

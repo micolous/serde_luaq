@@ -11,8 +11,8 @@
 `serde_luaq` is a library for deserialising (and eventually, serialising) simple, JSON-equivalent
 data structures from Lua 5.4 source code, _without requiring Lua itself_ (unlike [`mlua`][mlua]).
 
-The goal is to be able to read state from software (mostly games) which is serialised using
-[Lua `%q` formatting][format] (and similar techniques) _without_ requiring arbitrary code execution.
+The goal is to safely read state from software (mostly games) which is serialised using
+[Lua `%q` formatting][format] (and similar techniques) _without_ allowing arbitrary code execution.
 
 This library consists of four parts:
 
@@ -38,7 +38,7 @@ c = {
 }
 ```
 
-And define some a schema using Serde traits:
+Then define some a schema using Serde traits:
 
 ```rust
 #[derive(Deserialize, PartialEq, Debug)]
