@@ -1,7 +1,7 @@
 //! Numeral literal tests
 mod common;
 
-use crate::common::{check, should_error};
+use crate::common::{check, check_format, should_error};
 use serde_luaq::LuaValue;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -15,16 +15,30 @@ wasm_bindgen_test_configure!(run_in_browser);
 fn decimal_integers() {
     // https://www.lua.org/manual/5.4/manual.html#3.1
     check(b"0", LuaValue::integer(0));
+    check_format(LuaValue::integer(0), b"0");
+
     should_error(b"+0");
+
     check(b"-0", LuaValue::integer(-0));
+    check_format(LuaValue::integer(-0), b"0");
+
     check(b"3", LuaValue::integer(3));
+    check_format(LuaValue::integer(3), b"3");
+
     should_error(b"+3");
+
     check(b"-3", LuaValue::integer(-3));
+    check_format(LuaValue::integer(-3), b"-3");
+
     check(b"345", LuaValue::integer(345));
     should_error(b"+345");
     check(b"-345", LuaValue::integer(-345));
+
     check(b"9223372036854775807", LuaValue::integer(i64::MAX));
+    check_format(LuaValue::integer(i64::MAX), b"9223372036854775807");
+
     check(b"-9223372036854775808", LuaValue::integer(i64::MIN));
+    check_format(LuaValue::integer(i64::MIN), b"-9223372036854775808");
 
     // "a decimal integer numeral that overflows ... denotes a float"
     // Expected values account for floating point error
@@ -164,6 +178,10 @@ fn decimal_floats() {
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn hex_floats() {
+    check(b"0x0p+0", LuaValue::float(0.));
+    check(b"0x0p0", LuaValue::float(0.));
+    check_format(LuaValue::float(0.0), b"0x0p0");
+
     check(b"0x1.", LuaValue::float(1.));
     check(b"0x1.0", LuaValue::float(1.));
     should_error(b"0x1.0p");
