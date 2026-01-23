@@ -44,11 +44,46 @@ pub enum JsonConversionError {
     #[error("unknown floating point conversion failure")]
     Float,
 
+    /// Lua value contained a string that could not be encoded as RFC 3629 UTF-8.
+    /// 
+    /// Set [`JsonConversionOptions::lossy_string`][crate::JsonConversionOptions::lossy_string]
+    /// to use [lossy string conversion][String::from_utf8_lossy] instead. This can result in data
+    /// loss.
     #[error("UTF-8 encoding error: {0:?}")]
     Utf8Error(#[from] Utf8Error),
 
     #[error("Lua table contains a table as a key")]
     TableKeyedWithTable,
+    
+    /// Lua table was keyed with `nil`.
+    /// 
+    /// Set
+    /// [`JsonConversionOptions::nil_key_to_string`][crate::JsonConversionOptions::nil_key_to_string]
+    /// to convert it to the string `"nil"`.
+    #[error("Lua table contains nil as a key")]
+    TableKeyedWithNil,
+
+    /// Lua table was keyed with `true` or `false`.
+    /// 
+    /// Set
+    /// [`JsonConversionOptions::boolean_key_to_string`][crate::JsonConversionOptions::boolean_key_to_string]
+    /// to convert it to the string `"true"` or `"false"`.
+    #[error("Lua table contains boolean as a key")]
+    TableKeyedWithBoolean,
+
+    /// Lua table was keyed with a float.
+    /// 
+    /// Set
+    /// [`JsonConversionOptions::integer_key_to_string`][crate::JsonConversionOptions::integer_key_to_string]
+    /// to convert it to a string in decimal form.
+    #[error("Lua table contains integer as a key")]
+    TableKeyedWithInteger,
+
+    #[error("Lua table contains float as a key")]
+    TableKeyedWithFloat,
+
+    #[error("Lua table contains mix of implicit and explicit keys")]
+    TableKeyedImplicitlyAndExplicitly,
 }
 
 #[cfg(feature = "serde_json")]

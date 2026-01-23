@@ -15,15 +15,132 @@ impl<'a> TryFrom<LuaValue<'a>> for JsonValue {
     }
 }
 
+/// Implicit and explicit integer table key conversion options.
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
+pub enum JsonIntegerKeyConversion {
+    /// If a table contains an explicit integer key,
+    /// [return an error][JsonConversionError::TableKeyedWithInteger].
+    ///
+    /// If a table contains a mix of implicit and explicit keys (ie: a sparse table),
+    /// [return an error][JsonConversionError::TableKeyedImplicitlyAndExplicitly].
+    /// Tables may contain implicit keys if they don't contain explicit keys.
+    #[default]
+    None,
+
+    /// Only convert table entries with explicit integer keys to a string.
+    ///
+    /// `{ [1] = true }` => `{"1": true}`
+    ///
+    /// If a table contains a mix of implicit and explicit keys,
+    /// [return an error][JsonConversionError::TableKeyedImplicitlyAndExplicitly].
+    ExplicitKeys,
+
+    /// In tables with a mix of implicit and explicit keys, convert table entries with implicit keys
+    /// to a string (starting counting at 1, like Lua).
+    ///
+    /// `{ true, a = false }` => `{"1": true, "a": false}`
+    ///
+    /// If a table contains an explicit integer key,
+    /// [return an error][JsonConversionError::TableKeyedWithInteger].
+    ImplicitKeys,
+
+    /// Convert table entries with explicit integers to a string. In tables with a mix of implicit
+    /// and explicit keys, also convert table entries with implicit keys to a string (starting
+    /// counting at 1, like Lua).
+    ///
+    /// `{ true, [4] = false }` => `{"1": true, "4": false}`
+    AllKeys,
+}
+
+impl JsonIntegerKeyConversion {
+    /// Allow explicit integer keys to be converted to string.
+    #[inline]
+    const fn allow_explicit(self) -> bool {
+        matches!(self, Self::AllKeys | Self::ExplicitKeys)
+    }
+
+    /// Allow implicit integer keys to be converted to string.
+    #[inline]
+    const fn allow_implicit(self) -> bool {
+        matches!(self, Self::AllKeys | Self::ImplicitKeys)
+    }
+}
+
 /// [Lua to JSON][to_json_value] conversion options.
-#[derive(Default, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct JsonConversionOptions {
-    /// By default, [`to_json_value()`] returns [`JsonConversionError::Utf8Error`] on invalid UTF-8
-    /// sequences.
+    /// By default, [`to_json_value()`][] returns [`JsonConversionError::Utf8Error`][] on invalid
+    /// RFC 3629 UTF-8 sequences.
     ///
     /// When this option is set to `true`, it uses
     /// [lossy string conversion][String::from_utf8_lossy] instead. This can result in data loss.
     pub lossy_string: bool,
+
+    /// When `false`, [`to_json_value()`][] returns [`JsonConversionError::TableKeyedWithNil`][]
+    /// when a table is keyed with `nil`.
+    ///
+    /// When `true`, it will convert `nil` keys to the string `"nil"` instead.
+    ///
+    /// In `serde_luaq` v0.2.1 and earlier, this option didn't exist, and it would always convert
+    /// `nil` keys to `"nil"`.
+    pub nil_key_to_string: bool,
+
+    /// When `false`, [`to_json_value()`][] returns [`JsonConversionError::TableKeyedWithBoolean`][]
+    /// when a table is keyed with `true` or `false`.
+    ///
+    /// When `true`, it will convert boolean keys to the string `"true"` or `"false"` instead.
+    ///
+    /// In `serde_luaq` v0.2.1 and earlier, this option didn't exist, and it would always convert
+    /// boolean keys to strings.
+    pub boolean_key_to_string: bool,
+
+    /// Implicit and explicit integer table key conversion options, see
+    /// [`JsonIntegerKeyConversion`][].
+    pub integer_key_conversion: JsonIntegerKeyConversion,
+
+    /// When `false`, [`to_json_value()`][] returns [`JsonConversionError::TableKeyedWithBoolean`][]
+    /// when a table is keyed with `true` or `false`.
+    ///
+    /// When `true`, it will convert boolean keys to the string `"true"` or `"false"` instead.
+    ///
+    /// In `serde_luaq` v0.2.1 and earlier, this option didn't exist, and it would always convert
+    /// boolean keys to strings.
+    pub float_key_to_string: bool,
+}
+
+impl JsonConversionOptions {
+    /// Default options for this version of `serde_luaq`.
+    ///
+    /// Prefer using [`Self::DEFAULT_V0_2`][] or [`Self::DEFAULT_V0_3`][] instead.
+    pub const DEFAULT: Self = Self::DEFAULT_V0_2;
+
+    /// Current default options for compatibility with `serde_luaq` v0.2.x.
+    ///
+    /// This is effectively lossy due to table key conversion behaviour.
+    pub const DEFAULT_V0_2: Self = Self {
+        lossy_string: false,
+        nil_key_to_string: true,
+        boolean_key_to_string: true,
+        integer_key_conversion: JsonIntegerKeyConversion::AllKeys,
+        float_key_to_string: true,
+    };
+
+    /// Future default options for compatibility with `serde_luaq` v0.3.x.
+    ///
+    /// This behaviour is subject to change until `serde_luaq` v0.3.0.
+    pub const DEFAULT_V0_3: Self = Self {
+        lossy_string: false,
+        nil_key_to_string: false,
+        boolean_key_to_string: false,
+        integer_key_conversion: JsonIntegerKeyConversion::None,
+        float_key_to_string: false,
+    };
+}
+
+impl Default for JsonConversionOptions {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 /// Converts a [`LuaValue`] into a [`serde_json::Value`].
@@ -72,20 +189,31 @@ pub struct JsonConversionOptions {
 /// * A table containing one or more explicitly-keyed entries will be converted to
 ///   [an object][JsonValue::Object].
 ///
-/// * Tables with a mix of explicitly and implicitly-keyed entries will
+/// * [If implicit integer table key conversion is allowed][JsonConversionOptions::integer_key_conversion]
+///   tables with a mix of explicitly and implicitly-keyed entries will
 ///   [key implicitly-keyed values in the same as Lua][0], with consecutive integers starting
 ///   counting at `1`, without regard for explicitly-keyed entries.
 ///
 ///   This means `{[1] = 1, 2, 3, [2] = 4}` will result in `{"1": 2, "2": 4}`
 ///
-/// * Table keys are converted to strings when expressed as JSON:
+///   If implicit table key conversion is not allowed, then it will return
+///   [`JsonConversionError::TableKeyedImplicitlyAndExplicitly`].
+///
+/// * If table key conversion is allowed, they are converted to strings when expressed as JSON:
 ///
 ///   * Lua string keys are converted in [the same way as other strings](#strings)
-///   * [`nil`][LuaValue::Nil] is converted to the string `"nil"`
-///   * `true` and `false` are converted to the strings `"true"` and `"false"`
-///   * integers and floating points are
-///     [converted to strings with _Rust_ formatting conventions][ToString::to_string]
+///   * [`nil`][LuaValue::Nil] is converted to the string `"nil"`,
+///     [if allowed][JsonConversionOptions::nil_key_to_string]
+///   * `true` and `false` are converted to the strings `"true"` and `"false"`,
+///     [if allowed][JsonConversionOptions::boolean_key_to_string]
+///   * Integers are converted to decimal strings,
+///     [if allowed][JsonConversionOptions::integer_key_conversion]
+///   * Floating points are
+///     [converted to strings with _Rust_ formatting conventions][ToString::to_string],
+///     [if allowed][JsonConversionOptions::float_key_to_string]
 ///   * Tables keyed with a table will return [`JsonConversionError::TableKeyedWithTable`]
+///
+///   If table key conversion is not allowed for a particular type, it will instead return an error.
 ///
 /// * Entries of tables with the same key defined multiple times will be
 ///   silently overwritten (later entries take precedence).
@@ -136,7 +264,12 @@ pub fn to_json_value(
                 match entry {
                     LuaTableEntry::KeyValue(b) => {
                         // Switched to an object, move any existing entries from the array.
-                        move_array_to_object(&mut array, &mut array_next_idx, &mut object);
+                        move_array_to_object(
+                            &mut array,
+                            &mut array_next_idx,
+                            &mut object,
+                            opts.integer_key_conversion,
+                        )?;
 
                         let k = match b.0 {
                             LuaValue::String(k) => if opts.lossy_string {
@@ -145,9 +278,34 @@ pub fn to_json_value(
                                 from_utf8_cow(k).map_err(|(e, _)| e)?
                             }
                             .to_string(),
-                            LuaValue::Nil => "nil".to_string(),
-                            LuaValue::Boolean(k) => k.to_string(),
-                            LuaValue::Number(k) => k.to_string(),
+                            LuaValue::Nil => {
+                                if opts.nil_key_to_string {
+                                    "nil".to_string()
+                                } else {
+                                    return Err(JsonConversionError::TableKeyedWithNil);
+                                }
+                            }
+                            LuaValue::Boolean(k) => {
+                                if opts.boolean_key_to_string {
+                                    k.to_string()
+                                } else {
+                                    return Err(JsonConversionError::TableKeyedWithBoolean);
+                                }
+                            }
+                            LuaValue::Number(LuaNumber::Integer(k)) => {
+                                if opts.integer_key_conversion.allow_explicit() {
+                                    k.to_string()
+                                } else {
+                                    return Err(JsonConversionError::TableKeyedWithInteger);
+                                }
+                            }
+                            LuaValue::Number(LuaNumber::Float(k)) => {
+                                if opts.float_key_to_string {
+                                    k.to_string()
+                                } else {
+                                    return Err(JsonConversionError::TableKeyedWithFloat);
+                                }
+                            }
                             LuaValue::Table(_items) => {
                                 return Err(JsonConversionError::TableKeyedWithTable);
                             }
@@ -158,7 +316,12 @@ pub fn to_json_value(
 
                     LuaTableEntry::NameValue(b) => {
                         // Switched to an object, move any existing entries from the array.
-                        move_array_to_object(&mut array, &mut array_next_idx, &mut object);
+                        move_array_to_object(
+                            &mut array,
+                            &mut array_next_idx,
+                            &mut object,
+                            opts.integer_key_conversion,
+                        )?;
 
                         object.insert(b.0.to_string(), to_json_value(b.1, opts)?);
                     }
@@ -170,6 +333,9 @@ pub fn to_json_value(
                             array.push(v);
                         } else {
                             // We have an object, use the next key
+                            if !opts.integer_key_conversion.allow_implicit() {
+                                return Err(JsonConversionError::TableKeyedImplicitlyAndExplicitly);
+                            }
                             object.insert(array_next_idx.to_string(), v);
                             array_next_idx += 1;
                         }
@@ -182,6 +348,9 @@ pub fn to_json_value(
                             array.push(v);
                         } else {
                             // We have an object, use the next key
+                            if !opts.integer_key_conversion.allow_implicit() {
+                                return Err(JsonConversionError::TableKeyedImplicitlyAndExplicitly);
+                            }
                             object.insert(array_next_idx.to_string(), v);
                             array_next_idx += 1;
                         }
@@ -194,6 +363,9 @@ pub fn to_json_value(
                             array.push(v);
                         } else {
                             // We have an object, use the next key
+                            if !opts.integer_key_conversion.allow_implicit() {
+                                return Err(JsonConversionError::TableKeyedImplicitlyAndExplicitly);
+                            }
                             object.insert(array_next_idx.to_string(), v);
                             array_next_idx += 1;
                         }
@@ -206,6 +378,9 @@ pub fn to_json_value(
                             array.push(v);
                         } else {
                             // We have an object, use the next key
+                            if !opts.integer_key_conversion.allow_implicit() {
+                                return Err(JsonConversionError::TableKeyedImplicitlyAndExplicitly);
+                            }
                             object.insert(array_next_idx.to_string(), v);
                             array_next_idx += 1;
                         }
@@ -297,14 +472,21 @@ fn move_array_to_object(
     array: &mut Vec<JsonValue>,
     array_next_idx: &mut i64,
     object: &mut JsonMap<String, JsonValue>,
-) {
+    integer_key_conversion: JsonIntegerKeyConversion,
+) -> Result<(), JsonConversionError> {
     if !array.is_empty() {
+        if !integer_key_conversion.allow_implicit() {
+            return Err(JsonConversionError::TableKeyedImplicitlyAndExplicitly);
+        }
+
         let array = std::mem::take(array);
         for v in array {
             object.insert(array_next_idx.to_string(), v);
             *array_next_idx += 1;
         }
     }
+
+    Ok(())
 }
 
 impl TryFrom<LuaNumber> for JsonNumber {

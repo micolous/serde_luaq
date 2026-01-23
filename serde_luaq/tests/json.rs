@@ -13,9 +13,7 @@ use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
 wasm_bindgen_test_configure!(run_in_browser);
 
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
-const DEFAULT_OPTS: JsonConversionOptions = JsonConversionOptions {
-    lossy_string: false,
-};
+const DEFAULT_OPTS: JsonConversionOptions = JsonConversionOptions::DEFAULT_V0_2;
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
@@ -76,6 +74,7 @@ fn table_coersion() -> Result {
             &DEFAULT_OPTS
         )?
     );
+
     // JSON keys are always str, and all keys are not valid identifiers
     assert_eq!(
         LuaValue::Table(vec![

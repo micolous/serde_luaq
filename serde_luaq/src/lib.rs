@@ -638,7 +638,7 @@ pub use crate::{
 #[cfg(feature = "serde_json")]
 pub use crate::{
     error::{JsonConversionError, LuaConversionError},
-    serde_json::{from_json_value, to_json_value, JsonConversionOptions},
+    serde_json::{from_json_value, to_json_value, JsonConversionOptions, JsonIntegerKeyConversion},
 };
 
 /// Sorted list of Lua keywords which cannot be used as field names in scripts.
