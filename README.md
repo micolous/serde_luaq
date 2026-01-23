@@ -1,9 +1,11 @@
-# `serde_luaq` &emsp; [![Latest Version]][crates.io] [![Docs version]][docs.rs]
+# `serde_luaq` &emsp; [![Latest Version]][crates.io] [![Stable Docs]][docs.rs] [![Latest Docs]][githubdocs]
 
 [Latest Version]: https://img.shields.io/crates/v/serde_luaq.svg
 [crates.io]: https://crates.io/crates/serde_luaq
-[Docs version]: https://img.shields.io/docsrs/serde_luaq.svg
+[Stable Docs]: https://img.shields.io/docsrs/serde_luaq.svg
 [docs.rs]: https://docs.rs/serde_luaq/
+[Latest Docs]: https://github.com/micolous/serde_luaq/actions/workflows/docs.yml/badge.svg?branch=main
+[githubdocs]: https://micolous.github.io/serde_luaq/serde_luaq/
 
 > [!NOTE]
 > This library is still a work in progress, and there are no API stability guarantees.
