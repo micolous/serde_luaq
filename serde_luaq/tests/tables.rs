@@ -56,6 +56,9 @@ fn simple_table() -> Result {
         seq = {
             "a",
             "b",
+            nil,
+            true,
+            ...,
             x3yz = 0x12,
             [ [[foo]] ] = "bar",
             [5] = 42,
@@ -70,6 +73,9 @@ fn simple_table() -> Result {
             LuaValue::Table(vec![
                 LuaValue::String(b"a".into()).into(),
                 LuaValue::String(b"b".into()).into(),
+                LuaTableEntry::NilValue,
+                LuaTableEntry::BooleanValue(true),
+                LuaTableEntry::VarargExpressionValue,
                 LuaTableEntry::NameValue(Box::new(("x3yz".into(), 0x12.into()))),
                 LuaTableEntry::KeyValue(Box::new((b"foo".into(), b"bar".into()))),
                 LuaTableEntry::KeyValue(Box::new((5.into(), 42.into()))),
@@ -95,10 +101,15 @@ fn tables() {
     check(b, LuaValue::Table(vec![]));
 
     // Object containing nil
-    let b = b"{nil, true, false}";
+    let b = b"{..., nil, true, false}";
     check(
         b,
-        LuaValue::Table(vec![LuaValue::Nil.into(), true.into(), false.into()]),
+        LuaValue::Table(vec![
+            LuaValue::VarargExpression.into(),
+            LuaValue::Nil.into(),
+            true.into(),
+            false.into(),
+        ]),
     );
 
     // Keys with booleanish names

@@ -203,6 +203,29 @@ pub enum LuaTableEntry<'a> {
     /// );
     /// ```
     NilValue,
+
+    /// Bare `...` (vararg expression) table entry without a key.
+    ///
+    /// This is a specialisation of the [`Value` variant][LuaTableEntry::Value] for `...` literals
+    /// that avoids an extra heap allocation. These are considered equal with their
+    /// [`Value`][LuaTableEntry::Value] equivalents.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use serde_luaq::{LuaNumber, LuaTableEntry, LuaValue};
+    /// // {nil}
+    /// let _ = LuaValue::Table(vec![
+    ///     LuaTableEntry::VarArgExpressionValue,
+    /// ]);
+    ///
+    /// // Different variants of the same value are considered equal
+    /// assert_eq!(
+    ///     LuaTableEntry::Value(Box::new(LuaValue::VarArgExpression)),
+    ///     LuaTableEntry::VarArgExpressionValue,
+    /// );
+    /// ```
+    VarargExpressionValue,
 }
 
 #[cfg(any(
@@ -252,6 +275,7 @@ impl<'a> LuaTableEntry<'a> {
             LuaTableEntry::Value(_)
             | LuaTableEntry::NumberValue(_)
             | LuaTableEntry::NilValue
+            | LuaTableEntry::VarargExpressionValue
             | LuaTableEntry::BooleanValue(_) => None,
         }
     }
@@ -293,6 +317,7 @@ impl<'a> LuaTableEntry<'a> {
             LuaTableEntry::Value(value) => Some(value),
             LuaTableEntry::NumberValue(_)
             | LuaTableEntry::BooleanValue(_)
+            | LuaTableEntry::VarargExpressionValue
             | LuaTableEntry::NilValue => None,
         }
     }
@@ -310,6 +335,7 @@ impl<'a> LuaTableEntry<'a> {
             LuaTableEntry::NumberValue(value) => LuaValue::Number(value),
             LuaTableEntry::BooleanValue(value) => LuaValue::Boolean(value),
             LuaTableEntry::NilValue => LuaValue::Nil,
+            LuaTableEntry::VarargExpressionValue => LuaValue::VarargExpression,
         }
     }
 
@@ -340,7 +366,9 @@ impl<'a> LuaTableEntry<'a> {
                 return Some(n);
             }
 
-            LuaTableEntry::NilValue | LuaTableEntry::BooleanValue(_) => (),
+            LuaTableEntry::NilValue
+            | LuaTableEntry::VarargExpressionValue
+            | LuaTableEntry::BooleanValue(_) => (),
         }
 
         None
@@ -581,6 +609,7 @@ impl<'a> TryFrom<LuaTableEntry<'a>> for LuaValue<'a> {
             LuaTableEntry::BooleanValue(v) => Ok(LuaValue::Boolean(v)),
             LuaTableEntry::NumberValue(v) => Ok(LuaValue::Number(v)),
             LuaTableEntry::NilValue => Ok(LuaValue::Nil),
+            LuaTableEntry::VarargExpressionValue => Ok(LuaValue::VarargExpression),
             other => Err(other),
         }
     }
@@ -607,6 +636,7 @@ impl<'a> From<LuaValue<'a>> for LuaTableEntry<'a> {
     fn from(value: LuaValue<'a>) -> Self {
         match value {
             LuaValue::Nil => Self::NilValue,
+            LuaValue::VarargExpression => Self::VarargExpressionValue,
             LuaValue::Boolean(n) => Self::BooleanValue(n),
             LuaValue::Number(n) => Self::NumberValue(n),
             v => Self::Value(Box::new(v)),
@@ -624,6 +654,7 @@ impl PartialEq for LuaTableEntry<'_> {
             (Self::NumberValue(a), Self::NumberValue(b)) => a == b,
             (Self::BooleanValue(a), Self::BooleanValue(b)) => a == b,
             (Self::NilValue, Self::NilValue) => true,
+            (Self::VarargExpressionValue, Self::VarargExpressionValue) => true,
 
             // Key variant representations
             (Self::KeyValue(kv), Self::NameValue(nv))
@@ -664,6 +695,12 @@ impl PartialEq for LuaTableEntry<'_> {
             // Nil variant representations
             (Self::Value(a), Self::NilValue) | (Self::NilValue, Self::Value(a)) => {
                 matches!(a.as_ref(), LuaValue::Nil)
+            }
+
+            // Vararg expression variant representations
+            (Self::Value(a), Self::VarargExpressionValue)
+            | (Self::VarargExpressionValue, Self::Value(a)) => {
+                matches!(a.as_ref(), LuaValue::VarargExpression)
             }
 
             _ => false,

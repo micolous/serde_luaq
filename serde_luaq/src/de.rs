@@ -60,7 +60,7 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
         V: Visitor<'de>,
     {
         match self {
-            LuaValue::Nil => visitor.visit_none(),
+            LuaValue::Nil | LuaValue::VarargExpression => visitor.visit_none(),
             LuaValue::Boolean(v) => visitor.visit_bool(v),
             LuaValue::Number(v) => v.deserialize_any(visitor),
             LuaValue::String(v) => match v {
@@ -90,7 +90,7 @@ impl<'de> serde::Deserializer<'de> for LuaValue<'de> {
         V: Visitor<'de>,
     {
         match self {
-            LuaValue::Nil => visitor.visit_none(),
+            LuaValue::Nil | LuaValue::VarargExpression => visitor.visit_none(),
             _ => visitor.visit_some(self),
         }
     }
@@ -399,7 +399,7 @@ impl LuaValue<'_> {
     #[cold]
     fn unexpected(&self) -> Unexpected<'_> {
         match self {
-            LuaValue::Nil => Unexpected::Unit,
+            LuaValue::Nil | LuaValue::VarargExpression => Unexpected::Unit,
             LuaValue::Boolean(b) => Unexpected::Bool(*b),
             LuaValue::Number(LuaNumber::Integer(n)) => Unexpected::Signed(*n),
             LuaValue::Number(LuaNumber::Float(n)) => Unexpected::Float(*n),
@@ -541,6 +541,11 @@ impl<'a> SeqDeserializer<'a> {
                     i += 1;
                     highest_key = highest_key.max(i);
                 }
+                LuaTableEntry::VarargExpressionValue => {
+                    h.insert(i, LuaValue::VarargExpression);
+                    i += 1;
+                    highest_key = highest_key.max(i);
+                }
                 _ => unreachable!(),
             }
         }
@@ -679,6 +684,12 @@ where
             }
             Some(LuaTableEntry::NilValue) => {
                 self.value = Some(LuaValue::Nil);
+                let key_de = MapKeyDeserializer::Value(self.next_numeric_index);
+                self.next_numeric_index += 1;
+                seed.deserialize(key_de).map(Some)
+            }
+            Some(LuaTableEntry::VarargExpressionValue) => {
+                self.value = Some(LuaValue::VarargExpression);
                 let key_de = MapKeyDeserializer::Value(self.next_numeric_index);
                 self.next_numeric_index += 1;
                 seed.deserialize(key_de).map(Some)

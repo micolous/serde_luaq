@@ -39,6 +39,11 @@ pub struct JsonConversionOptions {
 /// [`serde_json::Value`] always uses owned types, so conversion may result in a copy for all
 /// [`Cow`][]-based types (strings).
 ///
+/// ### Vararg expressions
+///
+/// [`...`][LuaValue::VarArgExpression] is converted to `null` for bare values, or `"..."` for table
+/// keys.
+///
 /// ### Floating points
 ///
 /// [`f64::INFINITY`], [`f64::NEG_INFINITY`] and [`f64::NAN`] cannot be represented in JSON, and
@@ -82,6 +87,7 @@ pub struct JsonConversionOptions {
 ///
 ///   * Lua string keys are converted in [the same way as other strings](#strings)
 ///   * [`nil`][LuaValue::Nil] is converted to the string `"nil"`
+///   * [`...`][LuaValue::VarArgExpression] is converted to the string `"..."`
 ///   * `true` and `false` are converted to the strings `"true"` and `"false"`
 ///   * integers and floating points are
 ///     [converted to strings with _Rust_ formatting conventions][ToString::to_string]
@@ -101,7 +107,7 @@ pub fn to_json_value(
     let opts = opts.borrow();
 
     match value {
-        LuaValue::Nil => Ok(JsonValue::Null),
+        LuaValue::Nil | LuaValue::VarargExpression => Ok(JsonValue::Null),
 
         LuaValue::String(v) => Ok(JsonValue::from(
             if opts.lossy_string {
@@ -146,6 +152,7 @@ pub fn to_json_value(
                             }
                             .to_string(),
                             LuaValue::Nil => "nil".to_string(),
+                            LuaValue::VarargExpression => "...".to_string(),
                             LuaValue::Boolean(k) => k.to_string(),
                             LuaValue::Number(k) => k.to_string(),
                             LuaValue::Table(_items) => {
@@ -199,7 +206,7 @@ pub fn to_json_value(
                         }
                     }
 
-                    LuaTableEntry::NilValue => {
+                    LuaTableEntry::NilValue | LuaTableEntry::VarargExpressionValue => {
                         let v = JsonValue::Null;
                         if object.is_empty() {
                             // We have no object yet, push into array

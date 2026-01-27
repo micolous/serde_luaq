@@ -24,6 +24,12 @@ fn nil() {
 
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
+fn vararg() {
+    check(b"...", LuaValue::VarargExpression);
+}
+
+#[test]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen_test)]
 fn script_expressions() -> Result {
     let expected = vec![("x", LuaValue::integer(4)), ("y", LuaValue::integer(5))];
 

@@ -469,6 +469,7 @@ peg::parser! {
         pub rule lua_value(max_depth: u16) -> LuaValue<'input>
             = _ v:(
                 "nil" { LuaValue::Nil } /
+                "..." { LuaValue::VarargExpression } /
                 b:boolean() { LuaValue::Boolean(b) } /
                 n:numbers() { LuaValue::Number(n) } /
                 s:string() { LuaValue::String(s) } /

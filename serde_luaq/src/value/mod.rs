@@ -42,6 +42,16 @@ pub enum LuaValue<'a> {
     /// Unlike Lua, `nil` can be used anywhere, including as a table key or value.
     Nil,
 
+    /// Vararg expression (`...`).
+    ///
+    /// These are only valid inside of [varadic functions][varadic]. However, outside of varadic
+    /// functions, Lua sets it to `nil`.
+    ///
+    /// The Serde deserialiser will treat this the same as `nil`.
+    ///
+    /// [varadic]: https://www.lua.org/manual/5.4/manual.html#3.4.11
+    VarargExpression,
+
     /// Boolean, either `true` or `false`.
     Boolean(bool),
 
@@ -143,6 +153,7 @@ impl Debug for LuaValue<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Nil => write!(f, "Nil"),
+            Self::VarargExpression => write!(f, "VarArgExpression"),
             Self::Boolean(b) => f.debug_tuple("Boolean").field(b).finish(),
             Self::String(s) => f
                 .debug_tuple("String")
