@@ -531,7 +531,7 @@ peg::parser! {
         /// Parse a Lua script containing variable assignments into a [`Vec`] of
         /// `(&str, LuaValue)`.
         ///
-        /// For more details about type mapping rules and parameters,
+        /// For more details about type mapping rules and common parameters,
         /// [see the crate docs][crate#data-types].
         ///
         /// ## Example
@@ -547,14 +547,12 @@ peg::parser! {
         ///     script(b"hello = true\ngoodbye = false", 16).unwrap()
         /// );
         /// ```
-        ///
-        /// For more information about Lua type conversion, see [`LuaValue`].
         pub rule script(max_depth: u16) -> Vec<(&'input str, LuaValue<'input>)>
             = (_ a:assignment(max_depth) _ (";" _)* { a })*
 
         /// Parse a Lua `return` stamement into a [`LuaValue`].
         ///
-        /// For more details about type mapping rules and parameters,
+        /// For more details about type mapping rules and common parameters,
         /// [see the crate docs][crate#data-types].
         ///
         /// ## Example
@@ -564,9 +562,76 @@ peg::parser! {
         ///
         /// assert_eq!(LuaValue::Boolean(true), return_statement(b"return true\n", 16).unwrap());
         /// ```
-        ///
-        /// For more information about Lua type conversion, see [`LuaValue`].
         pub rule return_statement(max_depth: u16) -> LuaValue<'input>
             = _ "return" __ v:lua_value(max_depth) _ { v }
+
+        /// Parses the parameters of a single Lua function call.
+        ///
+        /// ## Parameters
+        ///
+        /// * `name`: The name of the function that the Lua code will call.
+        ///
+        ///   This must be a valid Lua identifier. This is **not** checked at compile time.
+        ///
+        /// For more details about type mapping rules and common parameters,
+        /// [see the crate docs][crate#data-types].
+        ///
+        /// ## Example
+        ///
+        /// ```rust
+        /// use serde_luaq::{function_call, LuaValue};
+        ///
+        /// // Parse a call to `load_data(...)`.
+        /// assert_eq!(
+        ///     vec![LuaValue::Boolean(true)],
+        ///     function_call(
+        ///         b"load_data(true)\n",
+        ///         /* function name */ b"load_data",
+        ///         16,
+        ///     ).unwrap(),
+        /// );
+        ///
+        /// // Multiple parameters and module names are accepted.
+        /// assert_eq!(
+        ///     vec![
+        ///         LuaValue::integer(123),
+        ///         LuaValue::from(b"hello")
+        ///     ],
+        ///     function_call(
+        ///         b"DataLib.Import(123, 'hello')\n",
+        ///         /* function name */ b"DataLib.Import",
+        ///         16,
+        ///     ).unwrap(),
+        /// );
+        ///
+        /// // Data with references to other functions will return an error.
+        /// assert!(function_call(
+        ///     b"load_data(123)",
+        ///     /* function name */ b"DataLib.Import",
+        ///     16,
+        /// ).is_err());
+        /// ```
+        pub rule function_call(name: &'static [u8], max_depth: u16) -> Vec<LuaValue<'input>>
+            =
+                _
+                (
+                    // Function name
+                    n:$(identifier() ** ([b':' | b'.']))
+                    {?
+                        if n != name {
+                            Err("function name mismatch")
+                        } else {
+                            Ok(())
+                        }
+                    }
+                )
+                _
+                // Function parameter
+                "("
+                v:((_ v:lua_value(max_depth) _ { v }) ** (","))
+                ")"
+                _
+                { v }
+
     }
 }

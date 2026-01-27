@@ -630,7 +630,7 @@ pub use crate::{
     de::{from_slice, from_str, LuaFormat},
     error::{Error, Result},
     number::LuaNumber,
-    peg_parser::lua::{lua_value, return_statement, script},
+    peg_parser::lua::{function_call, lua_value, return_statement, script},
     table_entry::LuaTableEntry,
     value::LuaValue,
 };

@@ -80,6 +80,7 @@ assert_eq!(parsed, Test {
   - [x] Bare Lua value expression, similar to JSON (`{["hello"] = "world"}`)
   - [x] Lua return statement (`return {["hello"] = "world"}`)
   - [x] Script with identifier assignments _only_ (`hello = "world"`)
+  - [x] Single function call (`LoadData({hello = "world"})`)
 - [ ] Serde (partial)
   - [x] Deserialising
   - [ ] Serialising
@@ -134,7 +135,7 @@ are _intentionally unsupported_:
 - Bitwise operators (`<<`, `>>`, `&`, `|`, `~`...)
 - Blocks and control structures (`if`, `break`, `do`, `end`, `for`, `goto`, `repeat`, `until`, `while`...)
 - Comments
-- Function calls
+- Function calls (except when parsing a single function call)
 - Function definitions
 - Length operator (`#`)
 - Locale-specific behaviour (`3,14159`)
