@@ -185,10 +185,10 @@ fn recursion() -> Result {
     assert_eq!(b.len(), (MAX_DEPTH as usize + 1) * 2);
     should_error(b);
 
-    // Recursing heavily shouldn't crash.
-    let mut b = Vec::with_capacity(65536);
-    b.resize(32768, b'{');
-    b.resize(65536, b'}');
+    // Recursing heavily shouldn't panic.
+    let mut b = Vec::with_capacity(0x100000);
+    b.resize(0x80000, b'{');
+    b.resize(0x80000, b'}');
     should_error(&b);
 
     Ok(())
