@@ -84,6 +84,6 @@ jobs:
       - run: cargo clippy --no-deps --workspace --target wasm32-unknown-unknown
       - run: cargo clippy --no-deps --workspace --no-default-features --target wasm32-unknown-unknown
 
-      - run: cargo build --target wasm32-unknown-unknown
+      - run: cd serde_luaq && cargo build --target wasm32-unknown-unknown
       - run: cd serde_luaq && wasm-pack test --headless --chrome
       - run: cd serde_luaq && wasm-pack test --headless --firefox

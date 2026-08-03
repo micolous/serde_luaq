@@ -106,6 +106,19 @@ fn merge_spans<'a>(s: Vec<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
 
 peg::parser! {
     pub grammar lua() for [u8] {
+        /// Enforce stack depth limit, returning an `Err` on exceeding the limit.
+        ///
+        /// `rust-peg` doesn't have a stack limit in its grammar. This workaround is based on
+        /// <https://github.com/kevinmehall/rust-peg/issues/282#issuecomment-2169784035>
+        rule depth_check(max_depth: u16) -> () =
+            {?
+                if max_depth == 0 {
+                    Err("too deeply nested")
+                } else {
+                    Ok(())
+                }
+            }
+
         rule identifier() -> &'input str
             = (
                 i:$([ b'a'..=b'z' | b'A'..=b'Z' | b'_' ][ b'a'..=b'z' | b'A'..=b'Z' | b'_' | b'0'..=b'9' ]*)
@@ -507,16 +520,10 @@ peg::parser! {
 
         rule table(max_depth: u16) -> Vec<LuaTableEntry<'input>>
             =
-                ("{" {?
-                    // rust-peg doesn't have a stack limit; workaround based on
-                    // https://github.com/kevinmehall/rust-peg/issues/282#issuecomment-2169784035
-                    if max_depth == 0 {
-                        Err("too deeply nested")
-                    } else {
-                        Ok(())
-                    }
-                })
+                depth_check(max_depth)
+                "{"
                 _
+                // Recursion point: reduce the maximum allowed stack depth.
                 e:table_entries(max_depth.saturating_sub(1))
                 _
                 // 3.4.9: [A table's] field list can have an optional trailing separator, as a
