@@ -323,7 +323,7 @@
 //! #### Tables as structs
 //!
 //! When deserialising a table as a `struct`, all keys must be written as valid
-//! [RFC 3629 strings](#strings) or [Lua identifiers][LuaTableEntry::NameValue].
+//! [RFC 3629 strings](#strings) (in Normal Form C) or [Lua identifiers][LuaTableEntry::NameValue].
 //!
 //! Unicode identifiers (`LUA_UCID`) and other locale-specific identifiers are not supported, even
 //! if they would be valid Rust identifiers. If used in a table key, these must be written as a
@@ -331,6 +331,26 @@
 //!
 //! ```lua
 //! { english = "en", ["français"] = "fr" }
+//! ```
+//!
+//! This could then be parsed with:
+//!
+//! ```rust
+//! # use serde::Deserialize;
+//! # use serde_luaq::{Error, LuaFormat, from_str};
+//! # fn main() -> Result<(), Error> {
+//! #[derive(Deserialize, Debug, PartialEq)]
+//! struct Example {
+//!     english: String,
+//!     français: String,
+//! }
+//!
+//! let input = r#"{ english = "en", ["français"] = "fr" }"#;
+//! let expected = Example { english: "en".to_string(), français: "fr".to_string() };
+//!
+//! assert_eq!(expected, from_str::<Example>(input, LuaFormat::Value, 16)?);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! [Serde does not support numeric keys in structs][serde-num-keys].

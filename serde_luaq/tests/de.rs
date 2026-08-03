@@ -743,6 +743,7 @@ fn field_naming() -> Result {
         māori: 3,
     };
 
+    // Normal form C as bytes
     assert_eq!(
         expected,
         from_slice(
@@ -752,6 +753,43 @@ fn field_naming() -> Result {
         )?
     );
 
+    // Normal form C as escaped bytes
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{['fran\\xc3\\xa7ais'] = 1, [\"espa\\xc3\\xb1ol\"] = 2, [\"m\\xc4\\x81ori\"] = 3}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
+    );
+
+    // Normal form C with \u escapes (no long strings)
+    assert_eq!(
+        expected,
+        from_slice(
+            b"{['fran\\u{E7}ais'] = 1, [\"espa\\u{F1}ol\"] = 2, [\"m\\u{101}ori\"] = 3}",
+            LuaFormat::Value,
+            MAX_DEPTH,
+        )?
+    );
+
+    // Normal form D as raw bytes
+    assert!(from_slice::<UnicodeFields>(
+        b"{['franc\xCC\xA7ais'] = 1, [\"espan\xCC\x83ol\"] = 2, [ [[ma\xCC\x84ori]]] = 3}",
+        LuaFormat::Value,
+        MAX_DEPTH,
+    )
+    .is_err());
+
+    // Normal form D as escaped bytes (no long strings)
+    assert!(from_slice::<UnicodeFields>(
+        b"{['franc\\xCC\\xA7ais'] = 1, [\"espan\\xCC\\x83ol\"] = 2, [\"ma\\xCC\\x84ori\"] = 3}",
+        LuaFormat::Value,
+        MAX_DEPTH,
+    )
+    .is_err());
+
+    // Normal form C with Unicode identifiers
     assert!(from_slice::<UnicodeFields>(
         "{français=1, español=2, māori=3}".as_bytes(),
         LuaFormat::Value,
