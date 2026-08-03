@@ -88,6 +88,7 @@
 //! | Lua type  | [`LuaValue`] variant    | Rust type(s) for Serde             |
 //! | --------- | ----------------------- | ---------------------------------- |
 //! | `nil`     | [`LuaValue::Nil`][]     | [`Option::None`][]                 |
+//! | `...`     | [`LuaValue::VarargExpression`][] | [`Option::None`][]        |
 //! | `boolean` | [`LuaValue::Boolean`][] | [`bool`][]                         |
 //! | `string`  | [`LuaValue::String`][]  | `[u8]`, `Vec<u8>`, [`String`] ([see note](#strings)) |
 //! | `number`  | [`LuaValue::Number`][]  | [`LuaNumber`][] ([see note](#numbers))               |
@@ -299,7 +300,7 @@
 //!
 //! For maps, `serde_luaq` treats "entry present and set to `nil`" and "entry not present" as
 //! distinct states. This means unless a key or value uses an [`Option`][] type, it must not contain
-//! `nil`:
+//! `nil` (or `...`):
 //!
 //! ```rust
 //! # use std::collections::BTreeMap;
@@ -537,7 +538,8 @@
 //!
 //! `serde_luaq` uses [`Cow`][std::borrow::Cow] to avoid owning strings whenever possible, borrowing
 //! from the input buffer (for short strings that don't contain escape sequences, and long strings)
-//! or `'static` (for empty strings and those containing a single, non-UTF-8 escape sequence) instead.
+//! or `'static` (for empty strings and those containing a single, non-UTF-8 escape sequence)
+//! instead.
 //!
 //! Otherwise, it must be reassembled by copying it into an owned buffer.
 //!

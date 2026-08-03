@@ -216,13 +216,13 @@ pub enum LuaTableEntry<'a> {
     /// # use serde_luaq::{LuaNumber, LuaTableEntry, LuaValue};
     /// // {nil}
     /// let _ = LuaValue::Table(vec![
-    ///     LuaTableEntry::VarArgExpressionValue,
+    ///     LuaTableEntry::VarargExpressionValue,
     /// ]);
     ///
     /// // Different variants of the same value are considered equal
     /// assert_eq!(
-    ///     LuaTableEntry::Value(Box::new(LuaValue::VarArgExpression)),
-    ///     LuaTableEntry::VarArgExpressionValue,
+    ///     LuaTableEntry::Value(Box::new(LuaValue::VarargExpression)),
+    ///     LuaTableEntry::VarargExpressionValue,
     /// );
     /// ```
     VarargExpressionValue,
