@@ -23,7 +23,7 @@ In a release build, `serde_luaq` should be able to deserialise arbitrary inputs 
 reasonably-specced PC, in a way that _is not significantly worse_ than evaluating the input with
 the current stable version of Lua (using `require()`, `load()`, etc.).
 
-_Remember:_ evaluating Lua scripts with _Lua itself_ allows arbitrary code execution. ;)
+_Remember:_ evaluating Lua scripts with _Lua itself_ allows arbitrary code execution. 😉
 
 Debug builds of `serde_luaq` should expect worse performance and memory usage than release builds,
 which may exacerbate some issues.
@@ -34,6 +34,8 @@ Use GitHub's security tab to make a private report. Off-platform reports are not
 
 - Reports **must** be written in English.
 
+- Reports **should** be as short as possible, while retaining all critical details.
+
 - Reports **must** include a proof of concept exploiting the bug in _this_ project, including
   the input Lua file that triggers the bug.
 
@@ -42,9 +44,11 @@ Use GitHub's security tab to make a private report. Off-platform reports are not
 
 - Reports **must** be validated and verified by a human (you!) before submission.
 
-  Properly triaging and investigating issues (not just security issues) takes time.
+  Properly triaging and investigating issues (not just security issues) takes time. This means
+  you're *allowed* to use automated analysis tools, but you are responsible for verifying their
+  outputs before you submit.
 
-- [Writing a patch][write-pr] that fixes the issue would be appreciated. :)
+- [Writing a patch][write-pr] that fixes the issue would be appreciated, but is not required.
 
 - Proof-of-concept exploits, including input Lua files, are considered contributions to the project
   [made under its license][license], even if the report is not accepted as a security bug.

@@ -163,6 +163,8 @@ something like [`mlua`][mlua], which links to `liblua`, and also provides `serde
 - [Balatro][] (`engine/string_packer.lua`) is a modified version of `SaveData` that also compresses
   with `deflate` for save games and settings (`.jkr` files).
 
+  See [`balatro_to_json.rs`](./serde_luaq/examples/balatro_to_json.rs) for an example.
+
 - World of Warcraft: addon state, written to `WTF/{Account,SavedVariables}/**/*.lua` as scripts that
   set variables.
 

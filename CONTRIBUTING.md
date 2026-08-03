@@ -38,6 +38,8 @@ source code with Lua... but this is not currently measured.
 
 - Issues must be written in English.
 
+- Issues must be written by a human.
+
 - For [security issues, check here][security].
 
 - If you've found a bug, include a simple way to reproduce it. I don't have access to your code
@@ -52,32 +54,50 @@ source code with Lua... but this is not currently measured.
 - If you have a question about how something in _this_ repository works, please use
   [the discussions tab][discussions].
 
-  The goal is that these will be answered by the documentation.
+Issues and questions sent by email (which could have been posted to GitHub) may attract my
+professional consulting rates. 😉
 
-Issues and questions sent by email may attract my professional consulting rates. :)
+Public collaboration creates a resource where everyone can learn from each other, requiring less
+of my personal attention over time.
 
 ## Submitting PRs
 
-- _Write an issue report first for any non-trivial change._ This will help find if someone else is
-  working on the issue, or if the work is even worth persuing (ie: in scope).
+- _Write an issue report first for any non-trivial change._
+
+  This will help find if someone else is working on the issue, or if the work is even worth persuing
+  (ie: in scope).
+
 - PR descriptions must be written in English.
+
 - All contributions **must be your own work**.
-- Automated PRs and the use of generative AI **is not welcome here**.
+
+- Automated PRs (except from our own automation) and the use of generative AI
+  **are not welcome here**.
+
 - Keep your PR small and simple. Focus on one issue at a time.
+
 - Include test cases.
+
 - Avoid mixing whitespace and formatting changes with your change.
+
 - If you're fixing a security bug, [use the private vulnerability reporting system][security] to
   make a private PR.
 
 Examples of welcomed contributions:
 
 - Fixing Serde issues
+
 - Expanding test cases
-- Fixing [security issues][security]
+
 - Fixing Lua parser issues
+
 - Performance improvements
+
 - Fixing documentation issues
+
 - Updating outdated dependencies
+
+- Fixing [security issues][security] (via [the private reporting system][security])
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
 this project by you, as defined in the Apache-2.0 license, shall be dual licensed under the terms of
