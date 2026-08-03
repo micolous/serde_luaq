@@ -93,6 +93,7 @@ This library aims to implement a _subset_ of Lua 5.4 that is equivalent to the s
 that a JSON parser would implement:
 
 - [x] `nil`
+  - [x] Vararg expressions (`...`), treated like `nil`
 - [x] Booleans (`true`, `false`)
 - [x] [Numbers][lua3.1]
   - [x] [Integers][lua3.1] (`i64` only)
